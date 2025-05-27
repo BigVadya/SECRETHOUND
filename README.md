@@ -1,5 +1,9 @@
 # SecretHound 🐕
 
+[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/BigVadya/SECRETHOUND?style=social)](https://github.com/BigVadya/SECRETHOUND/stargazers)
+
 A powerful and efficient tool for scanning files and directories to detect sensitive information such as private keys, passwords, API keys, and other confidential data. Like a trained hound, it sniffs out secrets in your codebase.
 
 ## Features
@@ -38,8 +42,8 @@ A powerful and efficient tool for scanning files and directories to detect sensi
 1. Clone the repository:
 
 ```bash
-git clone <repository-url>
-cd SecretHound
+git clone https://github.com/BigVadya/SECRETHOUND.git
+cd SECRETHOUND
 ```
 
 2. Install the required dependencies:
@@ -136,6 +140,21 @@ The following directories are automatically excluded from scanning:
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
 ## License
 
-[Add your license information here]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Author
+
+- **BigVadya** - _Initial work_ - [GitHub](https://github.com/BigVadya)
+
+## Acknowledgments
+
+- Thanks to all contributors who have helped improve this project
+- Inspired by the need for better security scanning tools
