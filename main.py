@@ -61,6 +61,60 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 # Импорт паттернов будет происходить в main_async()
 PATTERNS = None
 
+def display_results_optimized(results):
+    """Оптимизированный вывод результатов"""
+    console.print("\n" + "=" * 60)
+    console.print("[bold cyan][🔍] РЕЗУЛЬТАТЫ СКАНИРОВАНИЯ[/bold cyan]", justify="center")
+    console.print("=" * 60 + "\n")
+    
+    if not results:
+        console.print("[green][✓] Не найдено чувствительных данных[/green]")
+        return
+    
+    # Группируем по важности
+    severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    results_by_severity = {}
+    
+    for item in results:
+        severity = item.get("severity", "medium")
+        if severity not in results_by_severity:
+            results_by_severity[severity] = {}
+        
+        item_type = item["type"]
+        if item_type not in results_by_severity[severity]:
+            results_by_severity[severity][item_type] = []
+        
+        results_by_severity[severity][item_type].append(item)
+    
+    # Выводим по важности
+    for severity in sorted(results_by_severity.keys(), key=lambda x: severity_order.get(x, 99)):
+        severity_color = {
+            "critical": "red bold",
+            "high": "red",
+            "medium": "yellow",
+            "low": "blue"
+        }.get(severity, "white")
+        
+        console.print(f"\n[{severity_color}]═══ {severity.upper()} SEVERITY ═══[/{severity_color}]")
+        
+        for item_type, items in results_by_severity[severity].items():
+            color = COLORS.get(item_type, COLORS["Default"])
+            console.print(f"\n[bold][{color}]{item_type}[/][/bold] ({len(items)} найдено)")
+            
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("File", style="cyan")
+            table.add_column("Line", justify="right", style="green")
+            table.add_column("Snippet", style="white")
+            
+            for item in items:
+                table.add_row(
+                    item["file"],
+                    str(item["line"]),
+                    item["snippet"]
+                )
+            
+            console.print(table)
+
 class OptimizedScanner:
     """
     Основной класс для сканирования файлов на наличие чувствительных данных.
@@ -88,6 +142,9 @@ class OptimizedScanner:
         self.search_term = search_term
         if cache_dir:
             os.makedirs(cache_dir, exist_ok=True)
+        
+        # Создаем пул процессов для CPU-интенсивных операций
+        self.process_pool = ProcessPoolExecutor(max_workers=self.max_workers)
         
     def _compile_patterns(self):
         """
@@ -232,6 +289,16 @@ class OptimizedScanner:
             console.print(f"[yellow][WARNING] Cannot read {file_path}: {e}[/yellow]")
             return ""
     
+    def _find_line_number(self, content, position):
+        """
+        Находит номер строки для заданной позиции в тексте.
+        
+        Args:
+            content: Текст файла
+            position: Позиция в тексте
+        """
+        return content[:position].count('\n') + 1
+    
     async def analyze_file_async(self, file_path, base_path):
         """
         Асинхронно анализирует файл на наличие чувствительных данных.
@@ -254,43 +321,57 @@ class OptimizedScanner:
                 return []
                 
             rel_path = str(file_path.relative_to(base_path))
+            findings = []
+            seen_hashes = set()
             
             # Если задан поисковый запрос, ищем его в файле
             if self.search_term:
-                for line_num, line in enumerate(content.splitlines(), 1):
-                    if self.search_term in line:
-                        return [{
-                            'file': rel_path,
-                            'line': line_num,
-                            'type': 'User Search',
-                            'severity': 'info',
-                            'snippet': line.strip(),
-                            'hash': hashlib.md5(line.encode()).hexdigest()
-                        }]
+                # Используем генератор для поиска всех вхождений
+                for match in re.finditer(re.escape(self.search_term), content):
+                    line_num = self._find_line_number(content, match.start())
+                    findings.append({
+                        'file': rel_path,
+                        'line': line_num,
+                        'type': 'User Search',
+                        'severity': 'info',
+                        'snippet': content[match.start():match.end()].strip(),
+                        'hash': hashlib.md5(content[match.start():match.end()].encode()).hexdigest()
+                    })
             else:
-                # Обычное сканирование на чувствительные данные
-                findings = []
-                seen_hashes = set()
-                
-                # Разбиваем на строки только один раз
-                lines = content.splitlines()
-                
-                # Проходим по строкам
-                for line_num, line in enumerate(lines, 1):
-                    if not line.strip():  # Пропускаем пустые строки
-                        continue
+                # Применяем все паттерны к полному тексту
+                for pattern_name, pattern in self.compiled_patterns.items():
+                    for match in pattern.finditer(content):
+                        line_num = self._find_line_number(content, match.start())
+                        snippet = match.group(0)[:100]
+                        finding_hash = hash((pattern_name, rel_path, line_num, snippet))
                         
-                    # Применяем все паттерны к строке
-                    self._check_line_patterns(line, line_num, rel_path, findings, seen_hashes)
-                    
-                    # Проверяем кастомные домены
-                    if self.custom_domain_pattern:
-                        self._check_custom_domains(line, line_num, rel_path, findings, seen_hashes)
-                    
-                    # Даем возможность другим задачам выполниться каждые 1000 строк
-                    if line_num % 1000 == 0:
-                        await asyncio.sleep(0)
-                    
+                        if finding_hash not in seen_hashes:
+                            seen_hashes.add(finding_hash)
+                            findings.append({
+                                "type": pattern_name,
+                                "file": rel_path,
+                                "line": line_num,
+                                "snippet": snippet,
+                                "severity": self._get_severity(pattern_name)
+                            })
+                
+                # Проверяем кастомные домены
+                if self.custom_domain_pattern:
+                    for match in self.custom_domain_pattern.finditer(content):
+                        line_num = self._find_line_number(content, match.start())
+                        snippet = match.group(0)[:100]
+                        finding_hash = hash(("Custom Domain URL", rel_path, line_num, snippet))
+                        
+                        if finding_hash not in seen_hashes:
+                            seen_hashes.add(finding_hash)
+                            findings.append({
+                                "type": "Custom Domain URL",
+                                "file": rel_path,
+                                "line": line_num,
+                                "snippet": snippet,
+                                "severity": "medium"
+                            })
+            
             # Сохраняем результаты в кэш
             self._save_to_cache(file_path, findings)
             return findings
@@ -298,57 +379,6 @@ class OptimizedScanner:
         except Exception as e:
             console.print(f"[red][ERROR] Error processing {file_path}: {e}[/red]")
             return []
-    
-    def _check_line_patterns(self, line, line_num, rel_path, findings, seen_hashes):
-        """
-        Проверяет строку на соответствие всем паттернам.
-        
-        Args:
-            line: Текст строки
-            line_num: Номер строки
-            rel_path: Относительный путь к файлу
-            findings: Список найденных совпадений
-            seen_hashes: Множество уже найденных хешей
-        """
-        for pattern_name, compiled_pattern in self.compiled_patterns.items():
-            for match in compiled_pattern.finditer(line):
-                snippet = match.group(0)[:100]
-                finding_hash = hash((pattern_name, rel_path, line_num, snippet))
-                
-                if finding_hash not in seen_hashes:
-                    seen_hashes.add(finding_hash)
-                    findings.append({
-                        "type": pattern_name,
-                        "file": rel_path,
-                        "line": line_num,
-                        "snippet": snippet,
-                        "severity": self._get_severity(pattern_name)
-                    })
-    
-    def _check_custom_domains(self, line, line_num, rel_path, findings, seen_hashes):
-        """
-        Проверяет строку на наличие пользовательских доменов.
-        
-        Args:
-            line: Текст строки
-            line_num: Номер строки
-            rel_path: Относительный путь к файлу
-            findings: Список найденных совпадений
-            seen_hashes: Множество уже найденных хешей
-        """
-        for match in self.custom_domain_pattern.finditer(line):
-            snippet = match.group(0)[:100]
-            finding_hash = hash(("Custom Domain URL", rel_path, line_num, snippet))
-            
-            if finding_hash not in seen_hashes:
-                seen_hashes.add(finding_hash)
-                findings.append({
-                    "type": "Custom Domain URL",
-                    "file": rel_path,
-                    "line": line_num,
-                    "snippet": snippet,
-                    "severity": "medium"
-                })
     
     def _get_severity(self, pattern_name):
         """
@@ -367,7 +397,6 @@ class OptimizedScanner:
             return "high"
         else:
             return "medium"
-
 
 async def scan_directory_async(path, extensions=None):
     """Асинхронное сканирование директории"""
@@ -402,219 +431,6 @@ async def scan_directory_async(path, extensions=None):
     
     await scan_dir(target_path)
     return files
-
-
-def display_results_optimized(results):
-    """Оптимизированный вывод результатов"""
-    console.print("\n" + "=" * 60)
-    console.print("[bold cyan][🔍] РЕЗУЛЬТАТЫ СКАНИРОВАНИЯ[/bold cyan]", justify="center")
-    console.print("=" * 60 + "\n")
-    
-    if not results:
-        console.print("[green][✓] Не найдено чувствительных данных[/green]")
-        return
-    
-    # Группируем по важности
-    severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-    results_by_severity = {}
-    
-    for item in results:
-        severity = item.get("severity", "medium")
-        if severity not in results_by_severity:
-            results_by_severity[severity] = {}
-        
-        item_type = item["type"]
-        if item_type not in results_by_severity[severity]:
-            results_by_severity[severity][item_type] = []
-        
-        results_by_severity[severity][item_type].append(item)
-    
-    # Выводим по важности
-    for severity in sorted(results_by_severity.keys(), key=lambda x: severity_order.get(x, 99)):
-        severity_color = {
-            "critical": "red bold",
-            "high": "red",
-            "medium": "yellow",
-            "low": "blue"
-        }.get(severity, "white")
-        
-        console.print(f"\n[{severity_color}]═══ {severity.upper()} SEVERITY ═══[/{severity_color}]")
-        
-        for item_type, items in results_by_severity[severity].items():
-            color = COLORS.get(item_type, COLORS["Default"])
-            console.print(f"\n[bold][{color}]{item_type}[/][/bold] ({len(items)} найдено)")
-            
-            table = Table(show_header=True, header_style="bold magenta")
-            table.add_column("File", style="cyan")
-            table.add_column("Line", justify="right", style="green")
-            table.add_column("Snippet", style="white")
-            
-            for item in items:
-                table.add_row(
-                    item["file"],
-                    str(item["line"]),
-                    item["snippet"]
-                )
-            
-            console.print(table)
-
-
-class SensitiveDataScanner:
-    """
-    Класс для сканирования файлов на наличие чувствительных данных.
-    Поддерживает параллельное сканирование.
-    """
-    def __init__(self, root_dir: str, exclude_dirs: Optional[Set[str]] = None):
-        """
-        Инициализация сканера.
-        
-        Args:
-            root_dir: Корневая директория для сканирования
-            exclude_dirs: Множество директорий для исключения
-        """
-        self.root_dir = Path(root_dir)
-        self.exclude_dirs = exclude_dirs or set()
-        self.console = Console()
-        self.results: Dict[str, List[Dict]] = {}
-        self.chunk_size = 1024 * 1024  # 1MB chunks for streaming
-        
-    async def scan_file(self, file_path: Path) -> List[Dict]:
-        """
-        Сканирует один файл на наличие чувствительных данных.
-        
-        Args:
-            file_path: Путь к файлу
-            
-        Returns:
-            List[Dict]: Список найденных совпадений
-        """
-        findings = []
-        try:
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                line_number = 0
-                while True:
-                    chunk = f.read(self.chunk_size)
-                    if not chunk:
-                        break
-                        
-                    lines = chunk.split('\n')
-                    for line in lines:
-                        line_number += 1
-                        for pattern_name, pattern in PATTERNS.items():
-                            if pattern.search(line):
-                                findings.append({
-                                    'pattern': pattern_name,
-                                    'line': line_number,
-                                    'content': line.strip()
-                                })
-        except Exception as e:
-            self.console.print(f"[red]Error scanning {file_path}: {str(e)}[/red]")
-            
-        return findings
-
-    async def scan_directory(self):
-        """
-        Сканирует директорию на наличие чувствительных данных.
-        Использует параллельное сканирование файлов.
-        """
-        files_to_scan = []
-        
-        # Собираем все файлы для сканирования
-        for root, dirs, files in os.walk(self.root_dir):
-            # Пропускаем исключенные директории
-            dirs[:] = [d for d in dirs if d not in self.exclude_dirs]
-            
-            for file in files:
-                file_path = Path(root) / file
-                if file_path.is_file():
-                    files_to_scan.append(file_path)
-
-        # Обрабатываем файлы параллельно с ограничением количества одновременных операций
-        sem = asyncio.Semaphore(10)  # Ограничение в 10 одновременных сканирований
-        
-        async def scan_with_semaphore(file_path: Path):
-            async with sem:
-                findings = await self.scan_file(file_path)
-                if findings:
-                    self.results[str(file_path)] = findings
-                return file_path
-
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            console=self.console
-        ) as progress:
-            task = progress.add_task("Scanning files...", total=len(files_to_scan))
-            
-            # Создаем задачи для всех файлов
-            tasks = [scan_with_semaphore(f) for f in files_to_scan]
-            
-            # Обрабатываем файлы по мере их завершения
-            for completed in asyncio.as_completed(tasks):
-                await completed
-                progress.advance(task)
-
-    def display_results(self, results: List[Dict]):
-        """
-        Отображает результаты сканирования в консоли.
-        
-        Args:
-            results: Список результатов сканирования
-        """
-        if not results:
-            self.console.print("[green]Чувствительные данные не найдены![/green]")
-            return
-            
-        # Группируем результаты по типу и уровню важности
-        grouped_results = {}
-        for result in results:
-            key = (result['type'], result['severity'])
-            if key not in grouped_results:
-                grouped_results[key] = []
-            grouped_results[key].append(result)
-            
-        # Сортируем группы по уровню важности и типу
-        sorted_groups = sorted(
-            grouped_results.items(),
-            key=lambda x: (x[0][1] == 'critical', x[0][0])
-        )
-        
-        self.console.print("\n" + "=" * 60)
-        self.console.print(" " * 30 + "[🔍] РЕЗУЛЬТАТЫ СКАНИРОВАНИЯ")
-        self.console.print("=" * 60 + "\n")
-        
-        current_severity = None
-        for (result_type, severity), type_results in sorted_groups:
-            if severity != current_severity:
-                current_severity = severity
-                self.console.print(f"\n═══ {severity.upper()} SEVERITY ═══\n")
-                
-            # Создаем таблицу для текущей группы
-            table = Table(title=f"{result_type} ({len(type_results)} найдено)")
-            table.add_column("File", style="cyan")
-            table.add_column("Line", justify="right", style="green")
-            table.add_column("Snippet", style="yellow")
-            
-            # Добавляем строки в таблицу
-            for result in type_results:
-                table.add_row(
-                    result['file'],
-                    str(result['line']),
-                    result['snippet']
-                )
-                
-            self.console.print(table)
-            
-        # Выводим статистику
-        self.console.print("\n" + "=" * 60)
-        self.console.print("Статистика выполнения:")
-        self.console.print(f"Обработано файлов: {self.stats['files_processed']}")
-        self.console.print(f"Найдено совпадений (до очистки): {self.stats['matches_before_cleanup']}")
-        self.console.print(f"Найдено совпадений (после очистки): {len(results)}")
-        self.console.print(f"Время выполнения: {self.stats['execution_time']:.2f} сек.")
-        self.console.print("=" * 60)
 
 def parse_arguments():
     """
