@@ -1,6 +1,6 @@
 # SecretHound 🐕‍🦺
 
-[![Python Version](https://img.shields.io/badge/python-3.13.3%2B-blue)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/BigVadya/SECRETHOUND?style=social)](https://github.com/BigVadya/SECRETHOUND/stargazers)
 
@@ -17,26 +17,38 @@
 - **Advanced Options**: Custom domain detection, duplicate finding, configurable patterns, progress tracking, results caching, severity levels, and custom string search.
 - **Rich Output**: Color-coded console output, organized tables, and detailed statistics.
 
-## 📦 Installation
+## 📦 Installation (Cross-platform)
+
+### Recommended: pipx (isolated, user-level CLI)
+
+```bash
+pip install --user pipx  # if not installed
+pipx install 'git+https://github.com/BigVadya/SECRETHOUND.git'
+```
+
+### Or: pip (user or venv)
 
 ```bash
 git clone https://github.com/BigVadya/SECRETHOUND.git
 cd SECRETHOUND
-pip install -r requirements.txt
+pip install .
 ```
+
+- Python 3.8+ required. All dependencies will be installed automatically.
+- After install, the `secrethound` command will be available in your terminal on **Windows, Linux, macOS**.
 
 ## 🛠 Usage
 
 Basic scan:
 
 ```bash
-python main.py -t <target-path>
+secrethound -t <target-path>
 ```
 
 Advanced scan:
 
 ```bash
-python main.py -t <target-path> [-d DOMAINS] [-b] [-c CACHE_DIR] [-s SEARCH_TERM]
+secrethound -t <target-path> [-d DOMAINS] [-b] [-c CACHE_DIR] [-s SEARCH_TERM]
 ```
 
 ### Command Line Arguments
@@ -50,7 +62,13 @@ python main.py -t <target-path> [-d DOMAINS] [-b] [-c CACHE_DIR] [-s SEARCH_TERM
 ### Example
 
 ```bash
-python main.py -t ./my_project -d domains.txt -b -c ./cache
+secrethound -t ./my_project -d domains.txt -b -c ./cache
+```
+
+### For Developers: Run without install
+
+```bash
+python -m secrethound.main -t <target-path>
 ```
 
 ## 📤 Output
@@ -78,6 +96,12 @@ python main.py -t ./my_project -d domains.txt -b -c ./cache
 - Skips files > 50MB
 - Uses memory mapping and chunked reading
 - Parallel processing with configurable workers
+
+## 🖥️ Cross-platform
+
+- Works on **Windows, Linux, macOS**
+- CLI command is available after install via pip/pipx
+- No manual PATH setup needed with pipx or modern pip
 
 ## 🤝 Contributing
 
