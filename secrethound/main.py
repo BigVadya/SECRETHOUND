@@ -16,6 +16,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRe
 from rich.panel import Panel
 from rich import print as rprint
 from .utils.duplicate_finder import DuplicateFinder
+from .utils.web_scanner import download_and_scan_website
 from difflib import SequenceMatcher
 from typing import Dict, List, Set, Optional, Tuple
 
@@ -318,8 +319,8 @@ def decode_file(path: str) -> None:
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Сканер чувствительных данных')
-    parser.add_argument('-t', '--target', required=True,
-                      help='Путь к директории или файлу для сканирования')
+    parser.add_argument('-t', '--target',
+                      help='Путь к директории или файлу для сканирования (для локального сканирования)')
     parser.add_argument('-d', '--domains', 
                       help='Путь к файлу с пользовательскими доменами или строка с запятыми')
     parser.add_argument('-b', '--big-patterns', action='store_true', 
@@ -330,11 +331,20 @@ def parse_arguments():
                       help='Поиск конкретной строки в файлах')
     parser.add_argument('-ud', '--decode-unicode', action='store_true',
                       help='Декодировать unicode escape-последовательности в файлах перед сканированием')
+    parser.add_argument('-u', '--url', 
+                      help='URL веб-сайта для сканирования (скачивает файлы и анализирует их)')
+    parser.add_argument('--web-output', default='web_files',
+                      help='Папка для сохранения скачанных веб-файлов (по умолчанию: web_files)')
     return parser.parse_args()
 
 async def main_async():
     start_time = time.perf_counter()
     args = parse_arguments()
+    
+    # Проверяем, что указан либо target, либо url
+    if not args.target and not args.url:
+        console.print("[red][ERROR] Необходимо указать либо -t/--target для локального сканирования, либо -u/--url для веб-сканирования[/red]")
+        sys.exit(1)
     global PATTERNS
     try:
         if args.big_patterns:
@@ -368,12 +378,34 @@ async def main_async():
         console.print(f"[cyan]Поиск строки: {args.search}[/cyan]")
     if args.decode_unicode:
         console.print("[cyan]Включено декодирование Unicode escape-последовательностей[/cyan]")
-    files = await scan_directory_async(args.target, decode_unicode=args.decode_unicode)
-    if not files:
-        console.print("[yellow]Нет файлов для сканирования[/yellow]")
-        sys.exit(0)
+    
+    # Определяем файлы для сканирования
+    if args.url:
+        # Веб-сканирование
+        console.print(f"[cyan]🌐 Веб-сканирование: {args.url}[/cyan]")
+        web_output_dir = Path(args.web_output)
+        files = await download_and_scan_website(args.url, web_output_dir)
+        if not files:
+            console.print("[yellow]Не удалось скачать файлы с веб-сайта[/yellow]")
+            sys.exit(0)
+    else:
+        # Локальное сканирование
+        files = await scan_directory_async(args.target, decode_unicode=args.decode_unicode)
+        if not files:
+            console.print("[yellow]Нет файлов для сканирования[/yellow]")
+            sys.exit(0)
     results = []
-    base_path = Path(args.target).resolve()
+    
+    # Определяем базовый путь для относительных путей
+    if args.url:
+        base_path = Path(args.web_output).resolve()
+    else:
+        base_path = Path(args.target).resolve()
+    
+    # Для веб-сканирования используем абсолютные пути
+    if args.url:
+        files = [Path(file).resolve() for file in files]
+    
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),

@@ -30,6 +30,7 @@ SECRETHOUND/
 - **secrethound/utils/**: Contains helper modules:
   - `duplicate_finder.py`: Handles duplicate detection and cleaning
   - `sensitive_patterns.py` / `sensitive_patterns_big.py`: Regex patterns for sensitive data
+  - `web_scanner.py`: Downloads and analyzes files from web services
 
 ## 🔧 New Features
 
@@ -50,6 +51,26 @@ secrethound -t <target-path> --decode-unicode
 - Added `decode_file()` function in `main.py`
 - Modified `analyze_file_async()` to decode files before scanning
 - Added `-ud, --decode-unicode` CLI argument
+
+### Web Scanning
+The tool now supports scanning web services by downloading their files and analyzing them locally. This is useful for:
+- JavaScript applications and SPAs
+- API documentation and examples
+- Web services with exposed configuration files
+- Security analysis of web applications
+
+**Usage:**
+```bash
+secrethound -u https://example.com -ud
+secrethound -u https://api.example.com --web-output ./downloaded_files
+```
+
+**Implementation:**
+- Added `WebScanner` class in `web_scanner.py`
+- Supports downloading JS, CSS, HTML, JSON, XML files
+- Excludes CDN files (jQuery, Bootstrap, etc.)
+- Configurable file size limits and download depth
+- Added `-u, --url` and `--web-output` CLI arguments
 
 ## ➕ Adding New Patterns
 

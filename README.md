@@ -13,8 +13,9 @@
 ## 🚀 Features
 
 - **Comprehensive Scanning**: Detects private keys, passwords, credit card numbers, API keys, JWT tokens, emails, phone numbers, URLs, and custom domains.
+- **Web Scanning**: Downloads and analyzes files from web services, JavaScript files, and web applications.
 - **Performance Optimized**: Asynchronous file processing, parallel scanning, memory-mapped file reading, LRU caching, and chunked reading for large files.
-- **Advanced Options**: Custom domain detection, duplicate finding, configurable patterns, progress tracking, results caching, severity levels, custom string search, and Unicode decoding.
+- **Advanced Options**: Custom domain detection, duplicate finding, configurable patterns, progress tracking, results caching, severity levels, custom string search, Unicode decoding, and web file downloading.
 - **Rich Output**: Color-coded console output, organized tables, and detailed statistics.
 
 ## 📦 Installation (Cross-platform)
@@ -48,22 +49,33 @@ secrethound -t <target-path>
 Advanced scan:
 
 ```bash
+# Локальное сканирование
 secrethound -t <target-path> [-d DOMAINS] [-b] [-c CACHE_DIR] [-s SEARCH_TERM] [-ud]
+
+# Веб-сканирование
+secrethound -u <url> [-d DOMAINS] [-b] [-c CACHE_DIR] [-s SEARCH_TERM] [-ud] [--web-output DIR]
 ```
 
 ### Command Line Arguments
 
-- `-t, --target`: Path to the directory or file to scan (**required**)
+- `-t, --target`: Path to the directory or file to scan (для локального сканирования)
+- `-u, --url`: URL веб-сайта для сканирования (скачивает файлы и анализирует их)
 - `-d, --domains`: File or comma-separated list of custom domains
 - `-b, --big-patterns`: Use extended pattern set
 - `-c, --cache`: Path to cache directory
 - `-s, --search`: Search for a specific string
 - `-ud, --decode-unicode`: Decode unicode escape sequences in files before scanning
+- `--web-output`: Directory for downloaded web files (default: web_files)
 
-### Example
+### Examples
 
 ```bash
+# Локальное сканирование
 secrethound -t ./my_project -d domains.txt -b -c ./cache -ud
+
+# Веб-сканирование
+secrethound -u https://example.com -ud --web-output ./downloaded_files
+secrethound -u https://api.example.com -b -c ./cache
 ```
 
 ### For Developers: Run without install
