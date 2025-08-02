@@ -339,6 +339,16 @@ def parse_arguments():
                       help='URL веб-сайта для сканирования (скачивает файлы и анализирует их)')
     parser.add_argument('--web-output', default='web_files',
                       help='Папка для сохранения скачанных веб-файлов (по умолчанию: web_files)')
+    parser.add_argument('--web-depth', type=int, default=3,
+                      help='Глубина поиска для веб-сканирования (по умолчанию: 3)')
+    parser.add_argument('--web-delay', type=float, default=0.1,
+                      help='Задержка между запросами в секундах (по умолчанию: 0.1)')
+    parser.add_argument('--web-max-size', type=int, default=10 * 1024 * 1024,
+                      help='Максимальный размер файла для скачивания в байтах (по умолчанию: 10MB)')
+    parser.add_argument('--no-web-follow-redirects', action='store_true',
+                      help='Отключить следование редиректам при веб-сканировании')
+    parser.add_argument('--no-web-respect-robots', action='store_true',
+                      help='Отключить соблюдение robots.txt при веб-сканировании')
     parser.add_argument('--update', action='store_true',
                       help='Обновить зависимости и версию проекта')
     return parser.parse_args()
@@ -396,8 +406,23 @@ async def main_async():
     if args.url:
         # Веб-сканирование
         console.print(f"[cyan]🌐 Веб-сканирование: {args.url}[/cyan]")
+        console.print(f"[cyan]📊 Параметры веб-сканирования:[/cyan]")
+        console.print(f"[cyan]   • Глубина: {args.web_depth}[/cyan]")
+        console.print(f"[cyan]   • Задержка: {args.web_delay} сек[/cyan]")
+        console.print(f"[cyan]   • Макс. размер файла: {args.web_max_size // (1024*1024)}MB[/cyan]")
+        console.print(f"[cyan]   • Следование редиректам: {'Нет' if args.no_web_follow_redirects else 'Да'}[/cyan]")
+        console.print(f"[cyan]   • Соблюдение robots.txt: {'Нет' if args.no_web_respect_robots else 'Да'}[/cyan]")
+        
         web_output_dir = Path(args.web_output)
-        files = await download_and_scan_website(args.url, web_output_dir)
+        files = await download_and_scan_website(
+            url=args.url,
+            output_dir=web_output_dir,
+            max_depth=args.web_depth,
+            max_file_size=args.web_max_size,
+            follow_redirects=not args.no_web_follow_redirects,
+            respect_robots_txt=not args.no_web_respect_robots,
+            delay_between_requests=args.web_delay
+        )
         if not files:
             console.print("[yellow]Не удалось скачать файлы с веб-сайта[/yellow]")
             sys.exit(0)

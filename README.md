@@ -2,7 +2,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.16-brightgreen)](https://github.com/BigVadya/SECRETHOUND/releases)
+[![Version](https://img.shields.io/badge/version-0.1.19-brightgreen)](https://github.com/BigVadya/SECRETHOUND/releases)
 [![GitHub Stars](https://img.shields.io/github/stars/BigVadya/SECRETHOUND?style=social)](https://github.com/BigVadya/SECRETHOUND/stargazers)
 
 ---
@@ -124,8 +124,8 @@ secrethound --update
 - `--web-depth`: Search depth for web scanning (default: 3)
 - `--web-delay`: Delay between requests in seconds (default: 0.1)
 - `--web-max-size`: Maximum file size for downloading in bytes (default: 10MB)
-- `--web-follow-redirects`: Follow redirects during web scanning
-- `--web-respect-robots`: Respect robots.txt during web scanning
+- `--no-web-follow-redirects`: Disable following redirects during web scanning
+- `--no-web-respect-robots`: Disable respecting robots.txt during web scanning
 
 ### Examples
 
@@ -139,7 +139,7 @@ secrethound -u https://api.example.com -b -c ./cache
 
 # Web scanning with custom depth
 secrethound -u https://example.com --web-depth 5 --web-delay 0.2
-secrethound -u https://api.example.com --web-depth 2 --web-max-size 5242880
+secrethound -u https://api.example.com --web-depth 2 --web-max-size 5242880 --no-web-follow-redirects
 
 # Update tool
 secrethound --update
