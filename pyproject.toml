@@ -1,20 +1,21 @@
 [project]
 name = "secrethound"
-version = "0.1.0"
+version = "0.1.17"
 description = "A powerful tool for sniffing out secrets in your codebase"
 authors = [
     { name = "Your Name", email = "thehandofthelord0@gmail.com" }
 ]
 requires-python = ">=3.8"
 dependencies = [
-    "rich>=10.0.0",
+    "rich>=14.0.0",
     "asyncio>=3.4.3",
     "pathlib>=1.0.1",
-    "typer==0.9.0",
-    "aiofiles==23.2.1",
-    "pytest==7.4.3",
-    "pytest-asyncio==0.21.1",
-    "pytest-cov==4.1.0"
+    "typer>=0.9.0",
+    "aiofiles>=23.0.0",
+    "aiohttp>=3.8.0",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0"
 ]
 
 [project.scripts]

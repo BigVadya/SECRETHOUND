@@ -11,17 +11,21 @@ SECRETHOUND/
 ├── secrethound/              # Python package with all source code
 │   ├── __init__.py
 │   ├── main.py               # Main entry point and CLI logic
-│   └── utils/                # Utility modules (duplicate finder, patterns)
+│   └── utils/                # Utility modules
 │       ├── __init__.py
 │       ├── duplicate_finder.py
 │       ├── sensitive_patterns.py
-│       └── sensitive_patterns_big.py
+│       ├── sensitive_patterns_big.py
+│       ├── web_scanner.py
+│       ├── file_formats.py
+│       └── updater.py        # NEW: Automatic update module
 ├── output/                   # Scan results (auto-generated)
 ├── docs/                     # Documentation (this file)
 ├── README.md                 # Project overview and usage
 ├── pyproject.toml            # Build and packaging config
 ├── requirements.txt          # Python dependencies (for dev)
-└── ...
+├── update_secrethound.py    # Update script (uses updater module)
+└── PROJECT_STATUS.md        # Project status report
 ```
 
 ## 🧩 Main Modules
@@ -31,6 +35,33 @@ SECRETHOUND/
   - `duplicate_finder.py`: Handles duplicate detection and cleaning
   - `sensitive_patterns.py` / `sensitive_patterns_big.py`: Regex patterns for sensitive data
   - `web_scanner.py`: Downloads and analyzes files from web services
+  - `file_formats.py`: Configuration for supported file types
+  - `updater.py`: **NEW** - Automatic project update functionality
+
+## 🔄 Automatic Updates
+
+### New Update System
+The project now includes an automatic update system that:
+- Cleans dependencies from fixed versions
+- Updates packages to latest versions
+- Tests all project modules
+- Updates project version automatically
+
+### Usage
+```bash
+# Using the update script
+python update_secrethound.py
+
+# Or directly using the updater module
+python -m secrethound.utils.updater
+```
+
+### Update Features
+- **Dependency Cleaning**: Removes fixed versions, keeps minimum requirements
+- **Smart Updates**: Updates only core dependencies (rich, typer, aiofiles, aiohttp)
+- **Comprehensive Testing**: Tests all project modules automatically
+- **Version Management**: Automatically increments project version
+- **Status Display**: Shows current project status with dependencies
 
 ## 🔧 New Features
 
@@ -126,6 +157,22 @@ secrethound -u https://api.example.com --web-output ./downloaded_files
   twine upload dist/*
   ```
 - For CLI users, recommend pipx or pip install from PyPI or GitHub.
+
+## 🔄 Update Workflow
+
+### For Developers
+1. Make changes to the codebase
+2. Run `python update_secrethound.py` to update dependencies and version
+3. Test the changes
+4. Commit and push
+
+### For Users
+1. Run `python update_secrethound.py` to get latest updates
+2. The script will automatically:
+   - Clean dependency versions
+   - Update packages
+   - Test functionality
+   - Update project version
 
 ---
 

@@ -22,7 +22,7 @@ from typing import Dict, List, Set, Optional, Tuple
 
 console = Console()
 
-BANNER = """
+BANNER = r"""
  ███████╗███████╗ ██████╗██████╗ ███████╗████████╗    ██╗  ██╗ ██████╗ ██╗   ██╗███╗   ██╗██████╗ 
  ██╔════╝██╔════╝██╔════╝██╔══██╗██╔════╝╚══██╔══╝    ██║  ██║██╔═══██╗██║   ██║████╗  ██║██╔══██╗
  ███████╗█████╗  ██║     ██████╔╝█████╗     ██║       ███████║██║   ██║██║   ██║██╔██╗ ██║██║  ██║
@@ -335,11 +335,20 @@ def parse_arguments():
                       help='URL веб-сайта для сканирования (скачивает файлы и анализирует их)')
     parser.add_argument('--web-output', default='web_files',
                       help='Папка для сохранения скачанных веб-файлов (по умолчанию: web_files)')
+    parser.add_argument('--update', action='store_true',
+                      help='Обновить зависимости и версию проекта')
     return parser.parse_args()
 
 async def main_async():
     start_time = time.perf_counter()
     args = parse_arguments()
+    
+    # Проверяем, нужно ли обновление
+    if args.update:
+        from .utils.updater import SecretHoundUpdater
+        updater = SecretHoundUpdater()
+        success = updater.run_full_update()
+        sys.exit(0 if success else 1)
     
     # Проверяем, что указан либо target, либо url
     if not args.target and not args.url:
