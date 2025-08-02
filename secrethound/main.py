@@ -307,7 +307,11 @@ def decode_file(path: str) -> None:
             content = f.read()
 
         # Декодирование \uXXXX последовательностей
-        decoded = content.encode('utf-8').decode('unicode-escape')
+        try:
+            decoded = content.encode('utf-8').decode('unicode-escape')
+        except UnicodeDecodeError:
+            # Fallback for files that can't be decoded as unicode-escape
+            decoded = content
 
         # Перезапись файла декодированным содержимым
         with open(path, 'w', encoding='utf-8') as f:

@@ -1,6 +1,6 @@
 [project]
 name = "secrethound"
-version = "0.1.17"
+version = "0.1.18"
 description = "A powerful tool for sniffing out secrets in your codebase"
 authors = [
     { name = "Your Name", email = "thehandofthelord0@gmail.com" }

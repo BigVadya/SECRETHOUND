@@ -100,20 +100,20 @@ secrethound -t <target-path>
 Advanced scan:
 
 ```bash
-# Локальное сканирование
+# Local scanning
 secrethound -t <target-path> [-d DOMAINS] [-b] [-c CACHE_DIR] [-s SEARCH_TERM] [-ud]
 
-# Веб-сканирование
+# Web scanning
 secrethound -u <url> [-d DOMAINS] [-b] [-c CACHE_DIR] [-s SEARCH_TERM] [-ud] [--web-output DIR]
 
-# Обновление инструмента
+# Update tool
 secrethound --update
 ```
 
 ### Command Line Arguments
 
-- `-t, --target`: Path to the directory or file to scan (для локального сканирования)
-- `-u, --url`: URL веб-сайта для сканирования (скачивает файлы и анализирует их)
+- `-t, --target`: Path to the directory or file to scan (for local scanning)
+- `-u, --url`: Website URL for scanning (downloads files and analyzes them)
 - `-d, --domains`: File or comma-separated list of custom domains
 - `-b, --big-patterns`: Use extended pattern set (402 patterns vs standard set)
 - `-c, --cache`: Path to cache directory
@@ -121,27 +121,27 @@ secrethound --update
 - `-ud, --decode-unicode`: Decode unicode escape sequences in files before scanning
 - `--web-output`: Directory for downloaded web files (default: web_files)
 - `--update`: Update dependencies and project version
-- `--web-depth`: Глубина поиска для веб-сканирования (по умолчанию: 3)
-- `--web-delay`: Задержка между запросами в секундах (по умолчанию: 0.1)
-- `--web-max-size`: Максимальный размер файла для скачивания в байтах (по умолчанию: 10MB)
-- `--web-follow-redirects`: Следовать редиректам при веб-сканировании
-- `--web-respect-robots`: Учитывать robots.txt при веб-сканировании
+- `--web-depth`: Search depth for web scanning (default: 3)
+- `--web-delay`: Delay between requests in seconds (default: 0.1)
+- `--web-max-size`: Maximum file size for downloading in bytes (default: 10MB)
+- `--web-follow-redirects`: Follow redirects during web scanning
+- `--web-respect-robots`: Respect robots.txt during web scanning
 
 ### Examples
 
 ```bash
-# Локальное сканирование
+# Local scanning
 secrethound -t ./my_project -d domains.txt -b -c ./cache -ud
 
-# Веб-сканирование
+# Web scanning
 secrethound -u https://example.com -ud --web-output ./downloaded_files
 secrethound -u https://api.example.com -b -c ./cache
 
-# Веб-сканирование с настраиваемой глубиной
+# Web scanning with custom depth
 secrethound -u https://example.com --web-depth 5 --web-delay 0.2
 secrethound -u https://api.example.com --web-depth 2 --web-max-size 5242880
 
-# Обновление инструмента
+# Update tool
 secrethound --update
 ```
 

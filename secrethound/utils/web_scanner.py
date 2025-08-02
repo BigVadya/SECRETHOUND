@@ -42,9 +42,18 @@ class WebScanner:
         ssl_context.verify_mode = ssl.CERT_NONE
         
         connector = aiohttp.TCPConnector(ssl=ssl_context)
+        
+        # Настраиваем сессию с учетом параметров
+        timeout = aiohttp.ClientTimeout(total=30)
+        headers = {'User-Agent': 'SecretHound/1.0'}
+        
+        # Если не следуем редиректам, добавляем соответствующий заголовок
+        if not self.follow_redirects:
+            headers['X-No-Redirect'] = 'true'
+        
         self.session = aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=30),
-            headers={'User-Agent': 'SecretHound/1.0'},
+            timeout=timeout,
+            headers=headers,
             connector=connector
         )
         return self
@@ -68,8 +77,32 @@ class WebScanner:
         # Пропускаем не-HTTP(S)
         if parsed.scheme not in ('http', 'https'):
             return True
+        
+        # Проверяем robots.txt если включено
+        if self.respect_robots_txt:
+            if self._is_disallowed_by_robots(url):
+                return True
             
         return False
+    
+    def _is_disallowed_by_robots(self, url: str) -> bool:
+        """Проверяет, запрещен ли URL в robots.txt"""
+        try:
+            parsed = urlparse(url)
+            robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+            
+            # Кэшируем robots.txt для каждого домена
+            if not hasattr(self, '_robots_cache'):
+                self._robots_cache = {}
+            
+            if parsed.netloc not in self._robots_cache:
+                # Здесь можно добавить асинхронную загрузку robots.txt
+                # Пока просто возвращаем False (не запрещено)
+                self._robots_cache[parsed.netloc] = False
+            
+            return self._robots_cache[parsed.netloc]
+        except Exception:
+            return False
     
     def _get_filename_from_url(self, url: str) -> str:
         """Извлекает имя файла из URL"""
@@ -114,16 +147,21 @@ class WebScanner:
     async def _download_file(self, url: str, output_dir: Path) -> Optional[Path]:
         """Скачивает один файл"""
         try:
-            async with self.session.get(url) as response:
+            # Настраиваем параметры запроса
+            request_kwargs = {}
+            if not self.follow_redirects:
+                request_kwargs['allow_redirects'] = False
+            
+            async with self.session.get(url, **request_kwargs) as response:
                 if response.status != 200:
                     return None
                 
                 content_type = response.headers.get('content-type', '').lower()
                 content_length = int(response.headers.get('content-length', 0))
                 
-                # Проверяем размер
+                # Check size
                 if content_length > self.max_file_size:
-                    console.print(f"[yellow]Пропускаем большой файл: {url} ({content_length} bytes)[/yellow]")
+                    console.print(f"[yellow]Skipping large file: {url} ({content_length} bytes)[/yellow]")
                     return None
                 
                 # Читаем содержимое
@@ -145,11 +183,11 @@ class WebScanner:
                     await f.write(content)
                 
                 self.downloaded_files.append(file_path)
-                console.print(f"[green]✓ Скачан: {url} -> {file_path.name}[/green]")
+                console.print(f"[green]✓ Downloaded: {url} -> {file_path.name}[/green]")
                 return file_path
                 
         except Exception as e:
-            console.print(f"[red]✗ Ошибка скачивания {url}: {e}[/red]")
+            console.print(f"[red]✗ Download error {url}: {e}[/red]")
             return None
     
     async def _extract_links(self, html_content: str, base_url: str, current_depth: int = 0) -> Set[str]:
@@ -161,12 +199,12 @@ class WebScanner:
             # Стандартные ссылки на файлы
             r'src=["\']([^"\']*\.(?:js|ts|jsx|tsx|json|xml|html|htm|css|scss|sass|less|txt|md|yaml|yml|vue|svelte|astro|php|asp|aspx|jsp)[^"\']*)["\']',
             r'href=["\']([^"\']*\.(?:css|html|htm|xml|pdf|doc|docx)[^"\']*)["\']',
-            r'url\(["\']?([^"\')\s]*\.(?:js|css|json|xml|yaml|yml|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)["\']?\)',
-            
+            r'url\(["\']?([^"\')\s]+\.(?:js|css|json|xml|ya?ml|png|jpe?g|gif|svg|ico|woff2?|ttf|eot)(\?[^"\')\s]*)?)["\']?\)'
+
             # Конфигурационные файлы
             r'["\']([^"\']*\.(?:env|config|conf|ini|toml|properties|lock|lockfile|gitignore|dockerignore|editorconfig)[^"\']*)["\']',
             
-            # Пакетные менеджеры
+            # Package managers
             r'["\']([^"\']*(?:package\.json|package-lock\.json|yarn\.lock|pnpm-lock\.yaml|requirements\.txt|Pipfile|poetry\.lock|Cargo\.toml|composer\.json|Gemfile|pom\.xml|build\.gradle|go\.mod|pubspec\.yaml|mix\.exs)[^"\']*)["\']',
             
             # CI/CD файлы
@@ -229,13 +267,13 @@ class WebScanner:
                         if not self._should_skip_url(full_url):
                             links.add(full_url)
                     else:
-                        # На максимальной глубине скачиваем только файлы, а не страницы
+                        # At maximum depth download only files, not pages
                         if self._is_file_url(full_url):
                             if not self._should_skip_url(full_url):
                                 links.add(full_url)
                                 
             except re.error as e:
-                console.print(f"[yellow]Ошибка в регулярном выражении: {e}[/yellow]")
+                console.print(f"[yellow]Regex error: {e}[/yellow]")
         
         return links
     
@@ -262,27 +300,27 @@ class WebScanner:
         return False
     
     async def scan_website(self, base_url: str, output_dir: Path) -> List[Path]:
-        """Сканирует веб-сайт и скачивает файлы с учетом глубины поиска"""
-        console.print(f"[cyan]🔍 Начинаю сканирование: {base_url} (глубина: {self.max_depth})[/cyan]")
+        """Scans website and downloads files with search depth consideration"""
+        console.print(f"[cyan]🔍 Starting scan: {base_url} (depth: {self.max_depth})[/cyan]")
         
-        # Извлекаем домен из URL
+        # Extract domain from URL
         parsed_url = urlparse(base_url)
         domain = parsed_url.netloc
         
-        # Создаем папку с доменом внутри web_files
+        # Create domain folder inside web_files
         domain_dir = output_dir / domain
         domain_dir.mkdir(parents=True, exist_ok=True)
         
-        console.print(f"[cyan]📁 Файлы будут сохранены в: {domain_dir}[/cyan]")
+        console.print(f"[cyan]📁 Files will be saved to: {domain_dir}[/cyan]")
         
-        # Начинаем рекурсивное сканирование
+        # Start recursive scanning
         await self._scan_recursive(base_url, domain_dir, depth=0)
         
-        console.print(f"[green]✅ Сканирование завершено. Скачано файлов: {len(self.downloaded_files)}[/green]")
+        console.print(f"[green]✅ Scanning completed. Downloaded files: {len(self.downloaded_files)}[/green]")
         return self.downloaded_files
     
     async def _scan_recursive(self, url: str, output_dir: Path, depth: int = 0):
-        """Рекурсивно сканирует веб-сайт с учетом глубины"""
+        """Recursively scans website with depth consideration"""
         if depth > self.max_depth:
             return
         
@@ -292,22 +330,27 @@ class WebScanner:
         self.visited_urls.add(url)
         self.url_depth_map[url] = depth
         
-        console.print(f"[cyan]🔍 Сканирую {url} (глубина: {depth})[/cyan]")
+        console.print(f"[cyan]🔍 Scanning {url} (depth: {depth})[/cyan]")
         
         try:
-            # Добавляем задержку между запросами
+            # Add delay between requests
             if self.delay_between_requests > 0:
                 await asyncio.sleep(self.delay_between_requests)
             
-            async with self.session.get(url) as response:
+            # Настраиваем параметры запроса
+            request_kwargs = {}
+            if not self.follow_redirects:
+                request_kwargs['allow_redirects'] = False
+            
+            async with self.session.get(url, **request_kwargs) as response:
                 if response.status == 200:
                     content_type = response.headers.get('content-type', '').lower()
                     
                     if 'text/html' in content_type:
-                        # Это HTML страница - извлекаем ссылки и рекурсивно сканируем
+                        # This is an HTML page - extract links and scan recursively
                         html_content = await response.text()
                         
-                        # Сохраняем HTML страницу
+                        # Save HTML page
                         filename = self._get_filename_from_url(url)
                         if not filename.endswith('.html'):
                             filename += '.html'
@@ -323,19 +366,19 @@ class WebScanner:
                             await f.write(html_content)
                         self.downloaded_files.append(file_path)
                         
-                        # Извлекаем ссылки для рекурсивного сканирования
+                        # Extract links for recursive scanning
                         links = await self._extract_links(html_content, url, depth)
                         
-                        # Создаем задачи для рекурсивного сканирования
+                        # Create tasks for recursive scanning
                         tasks = []
                         for link in links:
                             if link not in self.visited_urls:
                                 task = self._scan_recursive(link, output_dir, depth + 1)
                                 tasks.append(task)
                         
-                        # Выполняем задачи параллельно (с ограничением)
+                        # Execute tasks in parallel (with limitation)
                         if tasks:
-                            semaphore = asyncio.Semaphore(5)  # Максимум 5 одновременных запросов
+                            semaphore = asyncio.Semaphore(5)  # Maximum 5 concurrent requests
                             async def limited_scan(task):
                                 async with semaphore:
                                     return await task
@@ -343,18 +386,18 @@ class WebScanner:
                             await asyncio.gather(*[limited_scan(task) for task in tasks], return_exceptions=True)
                     
                     else:
-                        # Это файл - скачиваем его
+                        # This is a file - download it
                         await self._download_file(url, output_dir)
                         
         except Exception as e:
-            console.print(f"[red]Ошибка при сканировании {url}: {e}[/red]")
+            console.print(f"[red]Error scanning {url}: {e}[/red]")
 
 async def download_and_scan_website(url: str, output_dir: Path, max_depth: int = 3, 
                                    max_file_size: int = 10 * 1024 * 1024,
                                    follow_redirects: bool = True, 
                                    respect_robots_txt: bool = True,
                                    delay_between_requests: float = 0.1) -> List[Path]:
-    """Удобная функция для скачивания и сканирования веб-сайта с настраиваемыми параметрами"""
+    """Convenient function for downloading and scanning website with configurable parameters"""
     async with WebScanner(
         max_depth=max_depth,
         max_file_size=max_file_size,
