@@ -196,13 +196,17 @@ class OptimizedScanner:
             return ""
     def _find_line_number(self, content, position):
         return content[:position].count('\n') + 1
-    async def analyze_file_async(self, file_path, base_path):
+    async def analyze_file_async(self, file_path, base_path, decode_unicode=False):
         if self._should_skip_file(str(file_path)):
             return []
         cached_results = self._load_from_cache(file_path)
         if cached_results is not None:
             return cached_results
         try:
+            # Декодируем файл перед анализом, если включена опция
+            if decode_unicode:
+                decode_file(str(file_path))
+                
             content = await self._read_file_async(file_path)
             if not content:
                 return []
@@ -265,7 +269,7 @@ class OptimizedScanner:
         else:
             return "medium"
 
-async def scan_directory_async(path, extensions=None):
+async def scan_directory_async(path, extensions=None, decode_unicode=False):
     target_path = Path(path).resolve()
     if target_path.is_file():
         return [target_path]
@@ -292,6 +296,26 @@ async def scan_directory_async(path, extensions=None):
     await scan_dir(target_path)
     return files
 
+def decode_file(path: str) -> None:
+    """
+    Считывает содержимое файла, декодирует unicode-экранированные последовательности и перезаписывает файл.
+    """
+    try:
+        # Чтение исходного содержимого
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Декодирование \uXXXX последовательностей
+        decoded = content.encode('utf-8').decode('unicode-escape')
+
+        # Перезапись файла декодированным содержимым
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(decoded)
+            
+        console.print(f"[green]✓ Файл '{path}' успешно декодирован[/green]")
+    except Exception as e:
+        console.print(f"[red]✗ Ошибка декодирования файла '{path}': {e}[/red]")
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Сканер чувствительных данных')
     parser.add_argument('-t', '--target', required=True,
@@ -304,6 +328,8 @@ def parse_arguments():
                       help='Путь к директории для кэширования')
     parser.add_argument('-s', '--search',
                       help='Поиск конкретной строки в файлах')
+    parser.add_argument('-ud', '--decode-unicode', action='store_true',
+                      help='Декодировать unicode escape-последовательности в файлах перед сканированием')
     return parser.parse_args()
 
 async def main_async():
@@ -340,7 +366,9 @@ async def main_async():
     scanner = OptimizedScanner(custom_domains, cache_dir=args.cache, search_term=args.search)
     if args.search:
         console.print(f"[cyan]Поиск строки: {args.search}[/cyan]")
-    files = await scan_directory_async(args.target)
+    if args.decode_unicode:
+        console.print("[cyan]Включено декодирование Unicode escape-последовательностей[/cyan]")
+    files = await scan_directory_async(args.target, decode_unicode=args.decode_unicode)
     if not files:
         console.print("[yellow]Нет файлов для сканирования[/yellow]")
         sys.exit(0)
@@ -355,7 +383,7 @@ async def main_async():
         console=console
     ) as progress:
         task = progress.add_task("[cyan]Scanning files...", total=len(files))
-        tasks = [scanner.analyze_file_async(file, base_path) for file in files]
+        tasks = [scanner.analyze_file_async(file, base_path, args.decode_unicode) for file in files]
         for completed_task in asyncio.as_completed(tasks):
             try:
                 file_results = await completed_task

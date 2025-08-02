@@ -14,7 +14,7 @@
 
 - **Comprehensive Scanning**: Detects private keys, passwords, credit card numbers, API keys, JWT tokens, emails, phone numbers, URLs, and custom domains.
 - **Performance Optimized**: Asynchronous file processing, parallel scanning, memory-mapped file reading, LRU caching, and chunked reading for large files.
-- **Advanced Options**: Custom domain detection, duplicate finding, configurable patterns, progress tracking, results caching, severity levels, and custom string search.
+- **Advanced Options**: Custom domain detection, duplicate finding, configurable patterns, progress tracking, results caching, severity levels, custom string search, and Unicode decoding.
 - **Rich Output**: Color-coded console output, organized tables, and detailed statistics.
 
 ## 📦 Installation (Cross-platform)
@@ -48,7 +48,7 @@ secrethound -t <target-path>
 Advanced scan:
 
 ```bash
-secrethound -t <target-path> [-d DOMAINS] [-b] [-c CACHE_DIR] [-s SEARCH_TERM]
+secrethound -t <target-path> [-d DOMAINS] [-b] [-c CACHE_DIR] [-s SEARCH_TERM] [-ud]
 ```
 
 ### Command Line Arguments
@@ -58,11 +58,12 @@ secrethound -t <target-path> [-d DOMAINS] [-b] [-c CACHE_DIR] [-s SEARCH_TERM]
 - `-b, --big-patterns`: Use extended pattern set
 - `-c, --cache`: Path to cache directory
 - `-s, --search`: Search for a specific string
+- `-ud, --decode-unicode`: Decode unicode escape sequences in files before scanning
 
 ### Example
 
 ```bash
-secrethound -t ./my_project -d domains.txt -b -c ./cache
+secrethound -t ./my_project -d domains.txt -b -c ./cache -ud
 ```
 
 ### For Developers: Run without install

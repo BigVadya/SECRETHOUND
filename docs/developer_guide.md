@@ -31,6 +31,26 @@ SECRETHOUND/
   - `duplicate_finder.py`: Handles duplicate detection and cleaning
   - `sensitive_patterns.py` / `sensitive_patterns_big.py`: Regex patterns for sensitive data
 
+## 🔧 New Features
+
+### Unicode Decoding
+The tool now supports decoding Unicode escape sequences in files before scanning. This is useful for:
+- Files with encoded Unicode characters (e.g., `\u0041` for 'A')
+- Obfuscated sensitive data
+- International character support
+
+**Usage:**
+```bash
+secrethound -t <target-path> -ud
+# или
+secrethound -t <target-path> --decode-unicode
+```
+
+**Implementation:**
+- Added `decode_file()` function in `main.py`
+- Modified `analyze_file_async()` to decode files before scanning
+- Added `-ud, --decode-unicode` CLI argument
+
 ## ➕ Adding New Patterns
 
 1. Open `secrethound/utils/sensitive_patterns.py` (or the relevant pattern file).
