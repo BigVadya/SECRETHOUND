@@ -74,7 +74,7 @@ The tool now supports decoding Unicode escape sequences in files before scanning
 **Usage:**
 ```bash
 secrethound -t <target-path> -ud
-# или
+# or
 secrethound -t <target-path> --decode-unicode
 ```
 

@@ -28,14 +28,14 @@ class WebScanner:
         self.session: Optional[aiohttp.ClientSession] = None
         self.visited_urls: Set[str] = set()
         self.downloaded_files: List[Path] = []
-        self.url_depth_map: Dict[str, int] = {}  # Отслеживаем глубину для каждого URL
+        self.url_depth_map: Dict[str, int] = {}  # Track depth for each URL
         
-        # Используем конфигурацию из file_formats.py
+        # Use configuration from file_formats.py
         self.target_extensions = WEB_TARGET_EXTENSIONS
         self.cdn_domains = CDN_DOMAINS
     
     async def __aenter__(self):
-        # Создаем SSL контекст, который игнорирует ошибки сертификатов
+        # Create SSL context that ignores certificate errors
         import ssl
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
@@ -43,11 +43,11 @@ class WebScanner:
         
         connector = aiohttp.TCPConnector(ssl=ssl_context)
         
-        # Настраиваем сессию с учетом параметров
+        # Configure session with parameters
         timeout = aiohttp.ClientTimeout(total=30)
         headers = {'User-Agent': 'SecretHound/1.0'}
         
-        # Если не следуем редиректам, добавляем соответствующий заголовок
+        # If not following redirects, add appropriate header
         if not self.follow_redirects:
             headers['X-No-Redirect'] = 'true'
         
@@ -63,22 +63,22 @@ class WebScanner:
             await self.session.close()
     
     def _should_skip_url(self, url: str) -> bool:
-        """Проверяет, нужно ли пропустить URL"""
+        """Checks if URL should be skipped"""
         parsed = urlparse(url)
         
-        # Пропускаем CDN
+        # Skip CDN
         if any(cdn in parsed.netloc for cdn in self.cdn_domains):
             return True
             
-        # Пропускаем уже посещенные
+        # Skip already visited
         if url in self.visited_urls:
             return True
             
-        # Пропускаем не-HTTP(S)
+        # Skip non-HTTP(S)
         if parsed.scheme not in ('http', 'https'):
             return True
         
-        # Проверяем robots.txt если включено
+        # Check robots.txt if enabled
         if self.respect_robots_txt:
             if self._is_disallowed_by_robots(url):
                 return True
@@ -86,18 +86,18 @@ class WebScanner:
         return False
     
     def _is_disallowed_by_robots(self, url: str) -> bool:
-        """Проверяет, запрещен ли URL в robots.txt"""
+        """Checks if URL is disallowed in robots.txt"""
         try:
             parsed = urlparse(url)
             robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
             
-            # Кэшируем robots.txt для каждого домена
+            # Cache robots.txt for each domain
             if not hasattr(self, '_robots_cache'):
                 self._robots_cache = {}
             
             if parsed.netloc not in self._robots_cache:
-                # Здесь можно добавить асинхронную загрузку robots.txt
-                # Пока просто возвращаем False (не запрещено)
+                # Here we can add asynchronous robots.txt loading
+                # For now just return False (not disallowed)
                 self._robots_cache[parsed.netloc] = False
             
             return self._robots_cache[parsed.netloc]
@@ -105,16 +105,16 @@ class WebScanner:
             return False
     
     def _get_filename_from_url(self, url: str) -> str:
-        """Извлекает имя файла из URL"""
+        """Extracts filename from URL"""
         parsed = urlparse(url)
         path = parsed.path
         
-        # Получаем имя файла из пути
+        # Get filename from path
         filename = path.split('/')[-1]
         
-        # Если имя файла пустое или нет расширения, генерируем
+        # If filename is empty or no extension, generate one
         if not filename or '.' not in filename:
-            content_type = 'text/plain'  # будет обновлено позже
+            content_type = 'text/plain'  # will be updated later
             ext = self._get_file_extension(url, content_type)
             filename = f"file_{len(self.downloaded_files):04d}{ext}"
         
@@ -125,12 +125,12 @@ class WebScanner:
         parsed = urlparse(url)
         path = parsed.path.lower()
         
-        # Из URL
+        # From URL
         for ext in self.target_extensions:
             if path.endswith(ext):
                 return ext
         
-        # Из Content-Type
+        # From Content-Type
         if 'javascript' in content_type:
             return '.js'
         elif 'json' in content_type:
@@ -145,9 +145,9 @@ class WebScanner:
         return '.txt'
     
     async def _download_file(self, url: str, output_dir: Path) -> Optional[Path]:
-        """Скачивает один файл"""
+        """Downloads one file"""
         try:
-            # Настраиваем параметры запроса
+            # Configure request parameters
             request_kwargs = {}
             if not self.follow_redirects:
                 request_kwargs['allow_redirects'] = False
@@ -164,13 +164,13 @@ class WebScanner:
                     console.print(f"[yellow]Skipping large file: {url} ({content_length} bytes)[/yellow]")
                     return None
                 
-                # Читаем содержимое
+                # Read content
                 content = await response.read()
                 
-                # Получаем оригинальное имя файла
+                # Get original filename
                 original_filename = self._get_filename_from_url(url)
                 
-                # Проверяем, не существует ли уже файл с таким именем
+                # Check if file with such name already exists
                 file_path = output_dir / original_filename
                 counter = 1
                 while file_path.exists():
@@ -178,7 +178,7 @@ class WebScanner:
                     file_path = output_dir / f"{name}_{counter}{ext}"
                     counter += 1
                 
-                # Сохраняем файл
+                # Save file
                 async with aiofiles.open(file_path, 'wb') as f:
                     await f.write(content)
                 
@@ -191,41 +191,41 @@ class WebScanner:
             return None
     
     async def _extract_links(self, html_content: str, base_url: str, current_depth: int = 0) -> Set[str]:
-        """Извлекает ссылки из HTML с учетом глубины поиска"""
+        """Extracts links from HTML considering search depth"""
         links = set()
         
-        # Расширенные паттерны для поиска ссылок
+        # Extended patterns for link search
         link_patterns = [
-            # Стандартные ссылки на файлы
+            # Standard file links
             r'src=["\']([^"\']*\.(?:js|ts|jsx|tsx|json|xml|html|htm|css|scss|sass|less|txt|md|yaml|yml|vue|svelte|astro|php|asp|aspx|jsp)[^"\']*)["\']',
             r'href=["\']([^"\']*\.(?:css|html|htm|xml|pdf|doc|docx)[^"\']*)["\']',
             r'url\(["\']?([^"\')\s]+\.(?:js|css|json|xml|ya?ml|png|jpe?g|gif|svg|ico|woff2?|ttf|eot)(\?[^"\')\s]*)?)["\']?\)'
 
-            # Конфигурационные файлы
+            # Configuration files
             r'["\']([^"\']*\.(?:env|config|conf|ini|toml|properties|lock|lockfile|gitignore|dockerignore|editorconfig)[^"\']*)["\']',
             
             # Package managers
             r'["\']([^"\']*(?:package\.json|package-lock\.json|yarn\.lock|pnpm-lock\.yaml|requirements\.txt|Pipfile|poetry\.lock|Cargo\.toml|composer\.json|Gemfile|pom\.xml|build\.gradle|go\.mod|pubspec\.yaml|mix\.exs)[^"\']*)["\']',
             
-            # CI/CD файлы
+            # CI/CD files
             r'["\']([^"\']*\.(?:travis\.yml|gitlab-ci\.yml|jenkins|jenkinsfile|circleci/config\.yml)[^"\']*)["\']',
             
-            # API и схемы
+            # API and schemas
             r'["\']([^"\']*\.(?:swagger|openapi|graphql|gql|wsdl|xsd)[^"\']*)["\']',
             
-            # Безопасность
+            # Security
             r'["\']([^"\']*\.(?:pem|key|crt|cer|p12|pfx|htaccess|htpasswd|htgroup|htdigest)[^"\']*)["\']',
             
-            # Логи и отладка
+            # Logs and debugging
             r'["\']([^"\']*\.(?:log|out|err|debug|trace|profile)[^"\']*)["\']',
             
-            # Специальные форматы
+            # Special formats
             r'["\']([^"\']*\.(?:map|min\.js|min\.css|bundle\.js|chunk\.js|manifest|webmanifest|service-worker\.js)[^"\']*)["\']',
             
-            # Дополнительные форматы
+            # Additional formats
             r'["\']([^"\']*\.(?:csv|tsv|xls|xlsx|ods|sql|db|bak|backup|old|orig|tmp|temp|cache|session|cookie|localstorage)[^"\']*)["\']',
             
-            # Ссылки на другие страницы (если глубина позволяет)
+            # Links to other pages (if depth allows)
             r'href=["\']([^"\']*\.(?:html|htm|php|asp|aspx|jsp)[^"\']*)["\']',
             r'action=["\']([^"\']*\.(?:php|asp|aspx|jsp)[^"\']*)["\']',
             
@@ -240,20 +240,20 @@ class WebScanner:
             r'["\']([^"\']*/ws[^"\']*)["\']',
             r'["\']([^"\']*/socket\.io[^"\']*)["\']',
             
-            # Статические ресурсы
+            # Static resources
             r'["\']([^"\']*/static/[^"\']*)["\']',
             r'["\']([^"\']*/assets/[^"\']*)["\']',
             r'["\']([^"\']*/public/[^"\']*)["\']',
             r'["\']([^"\']*/dist/[^"\']*)["\']',
             r'["\']([^"\']*/build/[^"\']*)["\']',
             
-            # Документация
+            # Documentation
             r'["\']([^"\']*/docs/[^"\']*)["\']',
             r'["\']([^"\']*/documentation/[^"\']*)["\']',
             r'["\']([^"\']*/api-docs/[^"\']*)["\']',
             
-            # Конфигурационные файлы в корне
-            r'["\']([^"\']*/(?:robots\.txt|sitemap\.xml|favicon\.ico)[^"\']*)["\']',
+            # Configuration files in root
+            r'["\']([^"\']*/(?:robots\.txt|sitemap\.xml)[^"\']*)["\']',
         ]
         
         for pattern in link_patterns:
@@ -262,7 +262,7 @@ class WebScanner:
                 for match in matches:
                     full_url = urljoin(base_url, match)
                     
-                    # Проверяем глубину для внутренних ссылок
+                    # Check depth for internal links
                     if current_depth < self.max_depth:
                         if not self._should_skip_url(full_url):
                             links.add(full_url)
@@ -278,16 +278,16 @@ class WebScanner:
         return links
     
     def _is_file_url(self, url: str) -> bool:
-        """Проверяет, является ли URL файлом, а не страницей"""
+        """Checks if URL is a file, not a page"""
         parsed = urlparse(url)
         path = parsed.path.lower()
         
-        # Проверяем расширения файлов
+        # Check file extensions
         for ext in self.target_extensions:
             if path.endswith(ext.lower()):
                 return True
         
-        # Проверяем специальные файлы
+        # Check special files
         special_files = {
             'robots.txt', 'sitemap.xml', 'favicon.ico', 'manifest.json',
             'sw.js', 'service-worker.js', 'webmanifest'
@@ -337,7 +337,7 @@ class WebScanner:
             if self.delay_between_requests > 0:
                 await asyncio.sleep(self.delay_between_requests)
             
-            # Настраиваем параметры запроса
+            # Configure request parameters
             request_kwargs = {}
             if not self.follow_redirects:
                 request_kwargs['allow_redirects'] = False

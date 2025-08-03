@@ -66,10 +66,10 @@ PATTERNS = None
 
 def display_results_optimized(results):
     console.print("\n" + "=" * 60)
-    console.print("[bold cyan][🔍] РЕЗУЛЬТАТЫ СКАНИРОВАНИЯ[/bold cyan]", justify="center")
+    console.print("[bold cyan][🔍] SCAN RESULTS[/bold cyan]", justify="center")
     console.print("=" * 60 + "\n")
     if not results:
-        console.print("[green][✓] Не найдено чувствительных данных[/green]")
+        console.print("[green][✓] No sensitive data found[/green]")
         return
     severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
     results_by_severity = {}
@@ -91,7 +91,7 @@ def display_results_optimized(results):
         console.print(f"\n[{severity_color}]═══ {severity.upper()} SEVERITY ═══[/{severity_color}]")
         for item_type, items in results_by_severity[severity].items():
             color = COLORS.get(item_type, COLORS["Default"])
-            console.print(f"\n[bold][{color}]{item_type}[/][/bold] ({len(items)} найдено)")
+            console.print(f"\n[bold][{color}]{item_type}[/][/bold] ({len(items)} found)")
             table = Table(show_header=True, header_style="bold magenta")
             table.add_column("File", style="cyan")
             table.add_column("Line", justify="right", style="green")
@@ -108,7 +108,7 @@ class OptimizedScanner:
     def __init__(self, custom_domains=None, max_workers=None, cache_dir=None, search_term=None):
         global PATTERNS
         if PATTERNS is None:
-            raise ValueError("PATTERNS не инициализированы. Убедитесь, что main_async() был вызван первым.")
+            raise ValueError("PATTERNS not initialized. Make sure main_async() was called first.")
         self.compiled_patterns = self._compile_patterns()
         self.custom_domain_pattern = self._compile_custom_domains(custom_domains)
         self.file_cache = {}
@@ -204,7 +204,7 @@ class OptimizedScanner:
         if cached_results is not None:
             return cached_results
         try:
-            # Декодируем файл перед анализом, если включена опция
+            # Decode file before analysis if option is enabled
             if decode_unicode:
                 decode_file(str(file_path))
                 
@@ -299,87 +299,89 @@ async def scan_directory_async(path, extensions=None, decode_unicode=False):
 
 def decode_file(path: str) -> None:
     """
-    Считывает содержимое файла, декодирует unicode-экранированные последовательности и перезаписывает файл.
+    Reads file content, decodes unicode-escaped sequences and overwrites the file.
     """
     try:
-        # Чтение исходного содержимого
+        # Read original content
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        # Декодирование \uXXXX последовательностей
+        # Decode \uXXXX sequences
         try:
             decoded = content.encode('utf-8').decode('unicode-escape')
         except UnicodeDecodeError:
             # Fallback for files that can't be decoded as unicode-escape
             decoded = content
 
-        # Перезапись файла декодированным содержимым
+        # Overwrite file with decoded content
         with open(path, 'w', encoding='utf-8') as f:
             f.write(decoded)
             
-        console.print(f"[green]✓ Файл '{path}' успешно декодирован[/green]")
+        console.print(f"[green]✓ File '{path}' successfully decoded[/green]")
     except Exception as e:
-        console.print(f"[red]✗ Ошибка декодирования файла '{path}': {e}[/red]")
+        console.print(f"[red]✗ Error decoding file '{path}': {e}[/red]")
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='Сканер чувствительных данных')
+    parser = argparse.ArgumentParser(description='Sensitive data scanner')
     parser.add_argument('-t', '--target',
-                      help='Путь к директории или файлу для сканирования (для локального сканирования)')
+                      help='Path to directory or file for scanning (for local scanning)')
     parser.add_argument('-d', '--domains', 
-                      help='Путь к файлу с пользовательскими доменами или строка с запятыми')
+                      help='Path to file with custom domains or comma-separated string')
     parser.add_argument('-b', '--big-patterns', action='store_true', 
-                      help='Использовать большой набор паттернов (sensitive_patterns_big.py)')
+                      help='Use large pattern set (sensitive_patterns_big.py)')
     parser.add_argument('-c', '--cache', 
-                      help='Путь к директории для кэширования')
+                      help='Path to directory for caching')
     parser.add_argument('-s', '--search',
-                      help='Поиск конкретной строки в файлах')
+                      help='Search for specific string in files')
     parser.add_argument('-ud', '--decode-unicode', action='store_true',
-                      help='Декодировать unicode escape-последовательности в файлах перед сканированием')
+                      help='Decode unicode escape sequences in files before scanning')
     parser.add_argument('-u', '--url', 
-                      help='URL веб-сайта для сканирования (скачивает файлы и анализирует их)')
+                      help='Website URL for scanning (downloads files and analyzes them)')
+    parser.add_argument('--url-file', 
+                      help='Path to file with list of URLs for scanning (one URL per line)')
     parser.add_argument('--web-output', default='web_files',
-                      help='Папка для сохранения скачанных веб-файлов (по умолчанию: web_files)')
+                      help='Folder for saving downloaded web files (default: web_files)')
     parser.add_argument('--web-depth', type=int, default=3,
-                      help='Глубина поиска для веб-сканирования (по умолчанию: 3)')
+                      help='Search depth for web scanning (default: 3)')
     parser.add_argument('--web-delay', type=float, default=0.1,
-                      help='Задержка между запросами в секундах (по умолчанию: 0.1)')
+                      help='Delay between requests in seconds (default: 0.1)')
     parser.add_argument('--web-max-size', type=int, default=10 * 1024 * 1024,
-                      help='Максимальный размер файла для скачивания в байтах (по умолчанию: 10MB)')
+                      help='Maximum file size for download in bytes (default: 10MB)')
     parser.add_argument('--no-web-follow-redirects', action='store_true',
-                      help='Отключить следование редиректам при веб-сканировании')
+                      help='Disable following redirects during web scanning')
     parser.add_argument('--no-web-respect-robots', action='store_true',
-                      help='Отключить соблюдение robots.txt при веб-сканировании')
+                      help='Disable robots.txt compliance during web scanning')
     parser.add_argument('--update', action='store_true',
-                      help='Обновить зависимости и версию проекта')
+                      help='Update dependencies and project version')
     return parser.parse_args()
 
 async def main_async():
     start_time = time.perf_counter()
     args = parse_arguments()
     
-    # Проверяем, нужно ли обновление
+    # Check if update is needed
     if args.update:
         from .utils.updater import SecretHoundUpdater
         updater = SecretHoundUpdater()
         success = updater.run_full_update()
         sys.exit(0 if success else 1)
     
-    # Проверяем, что указан либо target, либо url
-    if not args.target and not args.url:
-        console.print("[red][ERROR] Необходимо указать либо -t/--target для локального сканирования, либо -u/--url для веб-сканирования[/red]")
+    # Check that either target or url is specified
+    if not args.target and not args.url and not args.url_file:
+        console.print("[red][ERROR] Must specify either -t/--target for local scanning, or -u/--url for web scanning, or --url-file for scanning from file[/red]")
         sys.exit(1)
     global PATTERNS
     try:
         if args.big_patterns:
             from .utils.sensitive_patterns_big import PATTERNS as BIG_PATTERNS
             PATTERNS = BIG_PATTERNS
-            console.print("[cyan]Используется большой набор паттернов[/cyan]")
+            console.print("[cyan]Using large pattern set[/cyan]")
         else:
             from .utils.sensitive_patterns import PATTERNS as STD_PATTERNS
             PATTERNS = STD_PATTERNS
-            console.print("[cyan]Используется стандартный набор паттернов[/cyan]")
+            console.print("[cyan]Using standard pattern set[/cyan]")
     except ImportError as e:
-        console.print(f"[red][ERROR] Ошибка импорта паттернов: {e}[/red]")
+        console.print(f"[red][ERROR] Pattern import error: {e}[/red]")
         sys.exit(1)
     custom_domains = None
     if args.domains:
@@ -387,31 +389,31 @@ async def main_async():
             try:
                 with open(args.domains, 'r', encoding='utf-8') as f:
                     custom_domains = [line.strip() for line in f if line.strip()]
-                console.print(f"[cyan]Загружены пользовательские домены из файла: {args.domains}[/cyan]")
+                console.print(f"[cyan]Loaded custom domains from file: {args.domains}[/cyan]")
             except Exception as e:
-                console.print(f"[red][ERROR] Не удалось прочитать файл с доменами: {e}[/red]")
+                console.print(f"[red][ERROR] Failed to read domains file: {e}[/red]")
         else:
             custom_domains = [d.strip() for d in args.domains.split(',') if d.strip()]
             if custom_domains:
-                console.print(f"[cyan]Используются пользовательские домены: {', '.join(custom_domains)}[/cyan]")
+                console.print(f"[cyan]Using custom domains: {', '.join(custom_domains)}[/cyan]")
             else:
-                console.print(f"[yellow][WARN] Не удалось разобрать домены из строки: {args.domains}[/yellow]")
+                console.print(f"[yellow][WARN] Failed to parse domains from string: {args.domains}[/yellow]")
     scanner = OptimizedScanner(custom_domains, cache_dir=args.cache, search_term=args.search)
     if args.search:
-        console.print(f"[cyan]Поиск строки: {args.search}[/cyan]")
+        console.print(f"[cyan]Searching for string: {args.search}[/cyan]")
     if args.decode_unicode:
-        console.print("[cyan]Включено декодирование Unicode escape-последовательностей[/cyan]")
+        console.print("[cyan]Unicode escape sequence decoding enabled[/cyan]")
     
-    # Определяем файлы для сканирования
+    # Determine files for scanning
     if args.url:
-        # Веб-сканирование
-        console.print(f"[cyan]🌐 Веб-сканирование: {args.url}[/cyan]")
-        console.print(f"[cyan]📊 Параметры веб-сканирования:[/cyan]")
-        console.print(f"[cyan]   • Глубина: {args.web_depth}[/cyan]")
-        console.print(f"[cyan]   • Задержка: {args.web_delay} сек[/cyan]")
-        console.print(f"[cyan]   • Макс. размер файла: {args.web_max_size // (1024*1024)}MB[/cyan]")
-        console.print(f"[cyan]   • Следование редиректам: {'Нет' if args.no_web_follow_redirects else 'Да'}[/cyan]")
-        console.print(f"[cyan]   • Соблюдение robots.txt: {'Нет' if args.no_web_respect_robots else 'Да'}[/cyan]")
+        # Web scanning
+        console.print(f"[cyan]🌐 Web scanning: {args.url}[/cyan]")
+        console.print(f"[cyan]📊 Web scanning parameters:[/cyan]")
+        console.print(f"[cyan]   • Depth: {args.web_depth}[/cyan]")
+        console.print(f"[cyan]   • Delay: {args.web_delay} sec[/cyan]")
+        console.print(f"[cyan]   • Max file size: {args.web_max_size // (1024*1024)}MB[/cyan]")
+        console.print(f"[cyan]   • Follow redirects: {'No' if args.no_web_follow_redirects else 'Yes'}[/cyan]")
+        console.print(f"[cyan]   • Respect robots.txt: {'No' if args.no_web_respect_robots else 'Yes'}[/cyan]")
         
         web_output_dir = Path(args.web_output)
         files = await download_and_scan_website(
@@ -424,24 +426,56 @@ async def main_async():
             delay_between_requests=args.web_delay
         )
         if not files:
-            console.print("[yellow]Не удалось скачать файлы с веб-сайта[/yellow]")
+            console.print("[yellow]Failed to download files from website[/yellow]")
             sys.exit(0)
+    elif args.url_file:
+        # Scanning from URL file
+        console.print(f"[cyan]🌐 Scanning from URL file: {args.url_file}[/cyan]")
+        files = []
+        try:
+            with open(args.url_file, 'r', encoding='utf-8') as f:
+                urls = [line.strip() for line in f if line.strip()]
+                console.print(f"[cyan]Found URLs for scanning: {len(urls)}[/cyan]")
+                for url in urls:
+                    if url:
+                        console.print(f"[cyan]Scanning URL: {url}[/cyan]")
+                        web_output_dir = Path(args.web_output)
+                        web_output_dir.mkdir(exist_ok=True)
+                        file_results = await download_and_scan_website(
+                            url=url,
+                            output_dir=web_output_dir,
+                            max_depth=args.web_depth,
+                            max_file_size=args.web_max_size,
+                            follow_redirects=not args.no_web_follow_redirects,
+                            respect_robots_txt=not args.no_web_respect_robots,
+                            delay_between_requests=args.web_delay
+                        )
+                        if file_results:
+                            files.extend(file_results)
+                        else:
+                            console.print(f"[yellow]Failed to download files from URL: {url}[/yellow]")
+        except FileNotFoundError:
+            console.print(f"[red][ERROR] URL file not found: {args.url_file}[/red]")
+            sys.exit(1)
+        except Exception as e:
+            console.print(f"[red][ERROR] Error reading URL file: {e}[/red]")
+            sys.exit(1)
     else:
-        # Локальное сканирование
+        # Local scanning
         files = await scan_directory_async(args.target, decode_unicode=args.decode_unicode)
         if not files:
-            console.print("[yellow]Нет файлов для сканирования[/yellow]")
+            console.print("[yellow]No files to scan[/yellow]")
             sys.exit(0)
     results = []
     
-    # Определяем базовый путь для относительных путей
-    if args.url:
+    # Determine base path for relative paths
+    if args.url or args.url_file:
         base_path = Path(args.web_output).resolve()
     else:
         base_path = Path(args.target).resolve()
     
-    # Для веб-сканирования используем абсолютные пути
-    if args.url:
+    # For web scanning use absolute paths
+    if args.url or args.url_file:
         files = [Path(file).resolve() for file in files]
     
     with Progress(
@@ -465,21 +499,21 @@ async def main_async():
     raw_output_path = OUTPUT_DIR / 'raw_scan_results.json'
     with open(raw_output_path, 'w', encoding='utf-8') as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
-    console.print(f"[green]Неочищенные результаты сохранены в файл {raw_output_path}[/green]")
+    console.print(f"[green]Raw results saved to file {raw_output_path}[/green]")
     finder = DuplicateFinder()
     cleaned_results = finder.clean_duplicates(results)
     cleaned_output_path = OUTPUT_DIR / 'scan_results.json'
     with open(cleaned_output_path, 'w', encoding='utf-8') as f:
         json.dump(cleaned_results, f, ensure_ascii=False, indent=2)
-    console.print(f"[green]Очищенные результаты сохранены в файл {cleaned_output_path}[/green]")
+    console.print(f"[green]Cleaned results saved to file {cleaned_output_path}[/green]")
     display_results_optimized(cleaned_results)
     elapsed_time = time.perf_counter() - start_time
     console.print("\n" + "=" * 60)
-    console.print(f"[cyan]Статистика выполнения:[/cyan]")
-    console.print(f"[green]Обработано файлов:[/green] {len(files)}")
-    console.print(f"[green]Найдено совпадений (до очистки):[/green] {len(results)}")
-    console.print(f"[green]Найдено совпадений (после очистки):[/green] {len(cleaned_results)}")
-    console.print(f"[green]Время выполнения:[/green] {elapsed_time:.2f} сек.")
+    console.print(f"[cyan]Execution statistics:[/cyan]")
+    console.print(f"[green]Files processed:[/green] {len(files)}")
+    console.print(f"[green]Matches found (before cleaning):[/green] {len(results)}")
+    console.print(f"[green]Matches found (after cleaning):[/green] {len(cleaned_results)}")
+    console.print(f"[green]Execution time:[/green] {elapsed_time:.2f} sec.")
     console.print("=" * 60 + "\n")
 
 def main():

@@ -106,6 +106,9 @@ secrethound -t <target-path> [-d DOMAINS] [-b] [-c CACHE_DIR] [-s SEARCH_TERM] [
 # Web scanning
 secrethound -u <url> [-d DOMAINS] [-b] [-c CACHE_DIR] [-s SEARCH_TERM] [-ud] [--web-output DIR]
 
+# Web scanning from file with URLs
+secrethound --url-file <urls.txt> [-d DOMAINS] [-b] [-c CACHE_DIR] [-s SEARCH_TERM] [-ud] [--web-output DIR]
+
 # Update tool
 secrethound --update
 ```
@@ -114,6 +117,7 @@ secrethound --update
 
 - `-t, --target`: Path to the directory or file to scan (for local scanning)
 - `-u, --url`: Website URL for scanning (downloads files and analyzes them)
+- `--url-file`: Path to file with list of URLs for scanning (one URL per line)
 - `-d, --domains`: File or comma-separated list of custom domains
 - `-b, --big-patterns`: Use extended pattern set (402 patterns vs standard set)
 - `-c, --cache`: Path to cache directory
@@ -140,6 +144,10 @@ secrethound -u https://api.example.com -b -c ./cache
 # Web scanning with custom depth
 secrethound -u https://example.com --web-depth 5 --web-delay 0.2
 secrethound -u https://api.example.com --web-depth 2 --web-max-size 5242880 --no-web-follow-redirects
+
+# Web scanning from file
+secrethound --url-file urls.txt --web-depth 3 --web-delay 0.1
+secrethound --url-file api_endpoints.txt -b -c ./cache
 
 # Update tool
 secrethound --update

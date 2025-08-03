@@ -1,8 +1,8 @@
 import re
-# Единый словарь паттернов для поиска чувствительных данных,
-# упорядоченный по значимости информации для злоумышленника
+# Unified dictionary of patterns for searching sensitive data,
+# ordered by significance of information for attackers
 PATTERNS = {
-    # === 1. Критичные учётные данные и ключи доступа ===
+    # === 1. Critical credentials and access keys ===
     'Private Key PEM': re.compile(r"-----BEGIN\s+(?:RSA\s+)?PRIVATE KEY-----"),
     'AWS Access Key': re.compile(r'\bAKI[A-Z0-9]{16}\b'),
     'AWS Secret Key': re.compile(r'\b[0-9a-zA-Z]{40}\b'),
@@ -18,7 +18,7 @@ PATTERNS = {
     'Sentry DSN': re.compile(r'https://[a-zA-Z0-9]+@[a-zA-Z0-9.-]+/\d+'),
     'Azure Storage Key': re.compile(r'\bEby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuQl4='),
 
-    # === 2. Критичные сервисные пути ===
+    # === 2. Critical service paths ===
     'Admin Panel Path': re.compile(r'\b(?:/admin|/dashboard|/manager|/controlpanel)\b'),
     'Log File Path': re.compile(r'\b(?:/logs|/log|/error_log|/access_log)\b'),
     'Config File': re.compile(r'\b(?:\.env|\.env\.local|\.env\.production|\.env\.dev)\b'),
@@ -28,7 +28,7 @@ PATTERNS = {
         r'192\.168\.\d+\.\d+|\.svc\.k8s\.|\.internal\.)'
     ),
 
-    # === 3. Учётные данные и сессии ===
+    # === 3. Credentials and sessions ===
     'Username/Login': re.compile(r"\b(?:логин|username)[\s:=]*\w+\b", re.IGNORECASE),
     'Password': re.compile(r"\b(?:пароль|password)[\s:=]*\S+\b", re.IGNORECASE),
     'Session ID': re.compile(r"\bsession[_-]?id=\w+\b", re.IGNORECASE),
@@ -40,7 +40,7 @@ PATTERNS = {
     'XSRF Token': re.compile(r'\bXSRF-TOKEN=[A-Za-z0-9\-_]+\b'),
     'JWT Cookie': re.compile(r'\b(jwt|auth_token)=ey[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\b'),
 
-    # === 4. Финансовые данные ===
+    # === 4. Financial data ===
     'Credit Card Visa/MC': re.compile(r"(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14})"),
     'Credit Card Amex': re.compile(r"3[47][0-9]{13}"),
     'CVV/CVC 3 digits': re.compile(r"\b(?:CVV2?|CVC)[\s:=]*\d{3}\b", re.IGNORECASE),
@@ -53,7 +53,7 @@ PATTERNS = {
     'Bitcoin Address': re.compile(r'\b(bc1|[13][a-zA-HJ-NP-Z0-9]{25,39})\b'),
     'PayPal Transaction ID': re.compile(r'\b(?:PP-|PAY-)[A-Z0-9]{8,12}\b'),
 
-    # === 5. Персональные идентификаторы (PII) ===
+    # === 5. Personal identifiers (PII) ===
     'Passport (RU)': re.compile(r"паспорт\s*(?:серия\s*)?\d{2}[\s-]?\d{2}[\s-]?\d{6}", re.IGNORECASE),
     'Passport (EN)': re.compile(r"Passport\s*(?:No\.?|number)?\s*\d{6,9}", re.IGNORECASE),
     'SNILS': re.compile(r"\b\d{3}-\d{3}-\d{3}\s*\d{2}\b"),
@@ -64,7 +64,7 @@ PATTERNS = {
     'Medical Record Number': re.compile(r'\bMRN\d{8}\b'),
     'Insurance Policy Number': re.compile(r'\bINS\d{10,15}\b'),
 
-    # === 6. Контактная информация ===
+    # === 6. Contact information ===
     'Email Address':        re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
 
     'Personal Email': re.compile(
@@ -77,7 +77,7 @@ PATTERNS = {
     'Physical Address': re.compile(r'\b\d+\s+([A-Za-z]+\.?|\b[A-Z][a-z]+\b)\s+(?:St\.|Ave\.|Blvd\.|Road|Lane|Way|Drive|Court|Terrace|Circle|Place|Plaza|Square|Trail|Parkway|Commons|Highway|Expressway)\b'),
     'Fax Number': re.compile(r'\b(?:Fax|FAX|факс)[\s:=]?\+?(\d{1,3}[\s\-\.]?)?\(?\d{3,4}\)?[\s\-\.]?\d{3}[\s\-\.]?\d{2,4}[\s\-\.]?\d{2,4}\b'),
 
-    # === 7. Юридическая и коммерческая информация ===
+    # === 7. Legal and commercial information ===
     'Confidential Tag': re.compile(r"\b(?:Конфиденциально|Confidential|INTERNAL_USE_ONLY|RESTRICTED|TOP_SECRET)\b", re.IGNORECASE),
     'Contract Number': re.compile(r"\b(?:Договор|Contract)\s+№\s*\d+\b", re.IGNORECASE),
     'NDA Agreement': re.compile(r'\b(?:NDA|Non-Disclosure\s+Agreement)\b', re.IGNORECASE),
@@ -85,7 +85,7 @@ PATTERNS = {
     'Financial Model': re.compile(r"\b(?:финансовая\s+модель|financial\s+model)\b", re.IGNORECASE),
     'Company Confidential': re.compile(r'\b(?:Коммерческая тайна|Trade Secret|Company Proprietary)\b', re.IGNORECASE),
 
-    # === 8. Прочие чувствительные данные ===
+    # === 8. Other sensitive data ===
     'Birth Date': re.compile(r"\b\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}\b"),
     'Department': re.compile(r"\b(department|отдел|служба|unit|division)\b", re.IGNORECASE),
     'Job Title': re.compile(r"\b(manager|director|chief|lead|senior|junior|executive|officer)\b", re.IGNORECASE),

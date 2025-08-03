@@ -1,6 +1,6 @@
 """
-Модуль для автоматического обновления SecretHound
-Обновляет зависимости и проверяет работоспособность проекта
+Module for automatic updating of SecretHound
+Updates dependencies and checks project functionality
 """
 
 import subprocess
@@ -16,19 +16,19 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 console = Console()
 
 class SecretHoundUpdater:
-    """Класс для автоматического обновления SecretHound"""
+    """Class for automatic updating of SecretHound"""
     
     def __init__(self):
-        # Пытаемся найти корневую директорию проекта
+        # Try to find project root directory
         current_path = Path.cwd()
         self.project_root = None
         self.pyproject_path = None
         self.requirements_path = None
         
-        # Сначала попробуем найти через относительный путь от модуля
+        # First try to find through relative path from module
         try:
             module_path = Path(__file__)
-            # Ищем pyproject.toml в родительских директориях от модуля
+            # Look for pyproject.toml in parent directories from module
             search_path = module_path.parent
             while search_path != search_path.parent:
                 pyproject_candidate = search_path / "pyproject.toml"
@@ -41,7 +41,7 @@ class SecretHoundUpdater:
         except Exception:
             pass
         
-        # Если не нашли через модуль, ищем в текущей директории и родительских
+        # If not found through module, search in current directory and parent directories
         if not self.project_root:
             search_path = current_path
             while search_path != search_path.parent:
@@ -53,47 +53,47 @@ class SecretHoundUpdater:
                     break
                 search_path = search_path.parent
         
-        # Отладочная информация
-        print(f"🔍 Отладка: текущая директория = {current_path}")
-        print(f"🔍 Отладка: project_root = {self.project_root}")
-        print(f"🔍 Отладка: pyproject_path = {self.pyproject_path}")
+        # Debug information
+        print(f"🔍 Debug: current directory = {current_path}")
+        print(f"🔍 Debug: project_root = {self.project_root}")
+        print(f"🔍 Debug: pyproject_path = {self.pyproject_path}")
         if self.pyproject_path:
-            print(f"🔍 Отладка: pyproject_path.exists() = {self.pyproject_path.exists()}")
+            print(f"🔍 Debug: pyproject_path.exists() = {self.pyproject_path.exists()}")
         
     def run_command(self, cmd: str, description: str) -> Tuple[bool, str]:
-        """Выполняет команду и возвращает результат"""
+        """Executes command and returns result"""
         console.print(f"🔄 {description}...")
         try:
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
             if result.returncode == 0:
-                console.print(f"✅ {description} - успешно")
+                console.print(f"✅ {description} - success")
                 return True, result.stdout.strip()
             else:
-                console.print(f"❌ {description} - ошибка")
-                console.print(f"   Ошибка: {result.stderr.strip()}")
+                console.print(f"❌ {description} - error")
+                console.print(f"   Error: {result.stderr.strip()}")
                 return False, result.stderr.strip()
         except Exception as e:
-            console.print(f"❌ {description} - исключение: {e}")
+            console.print(f"❌ {description} - exception: {e}")
             return False, str(e)
     
     def check_python_version(self) -> bool:
-        """Проверяет версию Python"""
+        """Checks Python version"""
         version = sys.version_info
         if version.major < 3 or (version.major == 3 and version.minor < 8):
-            console.print("❌ Требуется Python 3.8 или выше")
+            console.print("❌ Python 3.8 or higher required")
             return False
         console.print(f"✅ Python {version.major}.{version.minor}.{version.micro}")
         return True
     
     def get_current_dependencies(self) -> List[str]:
-        """Получает текущие зависимости из pyproject.toml"""
+        """Gets current dependencies from pyproject.toml"""
         if not self.pyproject_path.exists():
             return []
         
         with open(self.pyproject_path, 'r') as f:
             content = f.read()
         
-        # Извлекаем зависимости
+        # Extract dependencies
         dependencies = []
         lines = content.split('\n')
         in_dependencies = False
@@ -112,10 +112,10 @@ class SecretHoundUpdater:
         return dependencies
     
     def update_dependencies(self) -> bool:
-        """Обновляет зависимости проекта"""
-        console.print("\n📦 Обновление зависимостей...")
+        """Updates project dependencies"""
+        console.print("\n📦 Updating dependencies...")
         
-        # Основные зависимости для обновления (без фиксированных версий)
+        # Core dependencies for updating (without fixed versions)
         core_dependencies = [
             "rich",
             "typer", 
@@ -130,21 +130,21 @@ class SecretHoundUpdater:
             if success:
                 success_count += 1
         
-        console.print(f"📊 Обновлено {success_count}/{len(core_dependencies)} зависимостей")
+        console.print(f"📊 Updated {success_count}/{len(core_dependencies)} dependencies")
         return success_count == len(core_dependencies)
     
     def test_project_modules(self) -> bool:
-        """Тестирует работоспособность всех модулей проекта"""
-        console.print("\n🧪 Тестирование модулей проекта...")
+        """Tests functionality of all project modules"""
+        console.print("\n🧪 Testing project modules...")
         
         tests = [
-            ("python -c 'import secrethound'", "Импорт основного модуля"),
-            ("python -c 'from secrethound.utils.sensitive_patterns import PATTERNS; print(f\"Загружено {len(PATTERNS)} паттернов\")'", "Загрузка стандартных паттернов"),
-            ("python -c 'from secrethound.utils.sensitive_patterns_big import PATTERNS; print(f\"Загружено {len(PATTERNS)} расширенных паттернов\")'", "Загрузка расширенных паттернов"),
-            ("python -c 'from secrethound.utils.duplicate_finder import DuplicateFinder'", "Тест DuplicateFinder"),
-            ("python -c 'from secrethound.utils.web_scanner import WebScanner'", "Тест WebScanner"),
-            ("python -c 'from secrethound.utils.file_formats import SUPPORTED_EXTENSIONS'", "Тест file_formats"),
-            ("python -m secrethound.main --help", "Тест CLI интерфейса")
+            ("python -c 'import secrethound'", "Import main module"),
+            ("python -c 'from secrethound.utils.sensitive_patterns import PATTERNS; print(f\"Loaded {len(PATTERNS)} patterns\")'", "Load standard patterns"),
+            ("python -c 'from secrethound.utils.sensitive_patterns_big import PATTERNS; print(f\"Loaded {len(PATTERNS)} extended patterns\")'", "Load extended patterns"),
+            ("python -c 'from secrethound.utils.duplicate_finder import DuplicateFinder'", "Test DuplicateFinder"),
+            ("python -c 'from secrethound.utils.web_scanner import WebScanner'", "Test WebScanner"),
+            ("python -c 'from secrethound.utils.file_formats import SUPPORTED_EXTENSIONS'", "Test file_formats"),
+            ("python -m secrethound.main --help", "Test CLI interface")
         ]
         
         success_count = 0
@@ -154,7 +154,7 @@ class SecretHoundUpdater:
             BarColumn(),
             console=console
         ) as progress:
-            task = progress.add_task("Тестирование модулей...", total=len(tests))
+            task = progress.add_task("Testing modules...", total=len(tests))
             
             for cmd, description in tests:
                 success, _ = self.run_command(cmd, description)
@@ -162,49 +162,49 @@ class SecretHoundUpdater:
                     success_count += 1
                 progress.advance(task)
         
-        console.print(f"📊 Протестировано {success_count}/{len(tests)} модулей")
+        console.print(f"📊 Tested {success_count}/{len(tests)} modules")
         return success_count == len(tests)
     
     def update_version(self) -> bool:
-        """Обновляет версию проекта"""
-        console.print("\n📝 Обновление версии проекта...")
+        """Updates project version"""
+        console.print("\n📝 Updating project version...")
         
         if not self.pyproject_path.exists():
-            console.print("❌ Файл pyproject.toml не найден")
+            console.print("❌ pyproject.toml file not found")
             return False
         
         with open(self.pyproject_path, 'r') as f:
             content = f.read()
         
-        # Ищем строку с версией
+        # Look for version line
         version_match = re.search(r'version = "(\d+\.\d+\.\d+)"', content)
         if not version_match:
-            console.print("❌ Не удалось найти версию в pyproject.toml")
+            console.print("❌ Failed to find version in pyproject.toml")
             return False
         
         current_version = version_match.group(1)
         major, minor, patch = map(int, current_version.split('.'))
         new_version = f"{major}.{minor}.{patch + 1}"
         
-        # Обновляем версию
+        # Update version
         new_content = re.sub(r'version = "\d+\.\d+\.\d+"', f'version = "{new_version}"', content)
         
         with open(self.pyproject_path, 'w') as f:
             f.write(new_content)
         
-        console.print(f"✅ Версия обновлена: {current_version} → {new_version}")
+        console.print(f"✅ Version updated: {current_version} → {new_version}")
         return True
     
     def clean_dependencies(self) -> bool:
-        """Очищает зависимости от фиксированных версий"""
-        console.print("\n🧹 Очистка зависимостей от фиксированных версий...")
+        """Cleans dependencies from fixed versions"""
+        console.print("\n🧹 Cleaning dependencies from fixed versions...")
         
-        # Обновляем pyproject.toml
+        # Update pyproject.toml
         if self.pyproject_path.exists():
             with open(self.pyproject_path, 'r') as f:
                 content = f.read()
             
-            # Заменяем фиксированные версии на минимальные требования
+            # Replace fixed versions with minimum requirements
             replacements = [
                 (r'rich>=14\.1\.0', 'rich>=14.0.0'),
                 (r'typer>=0\.16\.0', 'typer>=0.9.0'),
@@ -221,14 +221,14 @@ class SecretHoundUpdater:
             with open(self.pyproject_path, 'w') as f:
                 f.write(content)
             
-            console.print("✅ pyproject.toml очищен от фиксированных версий")
+            console.print("✅ pyproject.toml cleaned from fixed versions")
         
-        # Обновляем requirements.txt
+        # Update requirements.txt
         if self.requirements_path.exists():
             with open(self.requirements_path, 'r') as f:
                 content = f.read()
             
-            # Заменяем фиксированные версии на минимальные требования
+            # Replace fixed versions with minimum requirements
             replacements = [
                 (r'rich>=14\.1\.0', 'rich>=14.0.0'),
                 (r'typer>=0\.16\.0', 'typer>=0.9.0'),
@@ -245,96 +245,96 @@ class SecretHoundUpdater:
             with open(self.requirements_path, 'w') as f:
                 f.write(content)
             
-            console.print("✅ requirements.txt очищен от фиксированных версий")
+            console.print("✅ requirements.txt cleaned from fixed versions")
         
         return True
     
     def show_status(self) -> None:
-        """Показывает текущий статус проекта"""
-        console.print("\n📊 Статус проекта SecretHound")
+        """Shows current project status"""
+        console.print("\n📊 SecretHound Project Status")
         
-        # Проверяем версию Python
+        # Check Python version
         version = sys.version_info
         console.print(f"🐍 Python: {version.major}.{version.minor}.{version.micro}")
         
-        # Проверяем версию проекта
+        # Check project version
         if self.pyproject_path.exists():
             with open(self.pyproject_path, 'r') as f:
                 content = f.read()
             version_match = re.search(r'version = "(\d+\.\d+\.\d+)"', content)
             if version_match:
-                console.print(f"📦 Версия проекта: {version_match.group(1)}")
+                console.print(f"📦 Project version: {version_match.group(1)}")
         
-        # Показываем зависимости
+        # Show dependencies
         dependencies = self.get_current_dependencies()
         if dependencies:
-            table = Table(title="Зависимости проекта")
-            table.add_column("Пакет", style="cyan")
-            table.add_column("Версия", style="green")
+            table = Table(title="Project Dependencies")
+            table.add_column("Package", style="cyan")
+            table.add_column("Version", style="green")
             
             for dep in dependencies:
                 if '>=' in dep:
                     package, version = dep.split('>=', 1)
                     table.add_row(package, f">= {version}")
                 else:
-                    table.add_row(dep, "любая")
+                    table.add_row(dep, "any")
             
             console.print(table)
     
     def run_full_update(self) -> bool:
-        """Выполняет полное обновление проекта"""
-        console.print("🚀 Запуск полного обновления SecretHound...")
+        """Performs full project update"""
+        console.print("🚀 Starting full SecretHound update...")
         
-        # Проверяем, что мы в корневой директории проекта
+        # Check that we are in project root directory
         if not self.project_root or not self.pyproject_path or not self.pyproject_path.exists():
-            console.print("❌ Не удалось найти файл pyproject.toml")
-            console.print("   Убедитесь, что вы находитесь в корневой директории проекта SecretHound")
-            console.print(f"   Текущая директория: {Path.cwd()}")
+            console.print("❌ Failed to find pyproject.toml file")
+            console.print("   Make sure you are in the SecretHound project root directory")
+            console.print(f"   Current directory: {Path.cwd()}")
             if self.project_root:
-                console.print(f"   Найденная корневая директория: {self.project_root}")
+                console.print(f"   Found root directory: {self.project_root}")
             return False
         
-        # Показываем текущий статус
+        # Show current status
         self.show_status()
         
-        # Проверяем версию Python
+        # Check Python version
         if not self.check_python_version():
             return False
         
-        # Очищаем зависимости от фиксированных версий
+        # Clean dependencies from fixed versions
         if not self.clean_dependencies():
-            console.print("❌ Ошибка при очистке зависимостей")
+            console.print("❌ Error cleaning dependencies")
             return False
         
-        # Обновляем зависимости
+        # Update dependencies
         if not self.update_dependencies():
-            console.print("❌ Ошибка при обновлении зависимостей")
+            console.print("❌ Error updating dependencies")
             return False
         
-        # Тестируем проект
+        # Test project
         if not self.test_project_modules():
-            console.print("❌ Ошибка при тестировании проекта")
+            console.print("❌ Error testing project")
             return False
         
-        # Обновляем версию
+        # Update version
         if not self.update_version():
-            console.print("❌ Ошибка при обновлении версии")
+            console.print("❌ Error updating version")
             return False
         
-        console.print("\n🎉 Обновление SecretHound завершено успешно!")
-        console.print("📋 Что было сделано:")
-        console.print("   ✅ Очищены зависимости от фиксированных версий")
-        console.print("   ✅ Обновлены зависимости до последних версий")
-        console.print("   ✅ Протестирована работоспособность всех модулей")
-        console.print("   ✅ Обновлена версия проекта")
-        console.print("\n💡 Для использования:")
-        console.print("   python -m secrethound.main -t <путь>")
-        console.print("   или после установки: secrethound -t <путь>")
+        console.print("\n🎉 SecretHound update completed successfully!")
+        console.print("📋 What was done:")
+        console.print("   ✅ Dependencies cleaned from fixed versions")
+        console.print("   ✅ Dependencies updated to latest versions")
+        console.print("   ✅ All modules functionality tested")
+        console.print("   ✅ Project version updated")
+        console.print("\n💡 For usage:")
+        console.print("   python -m secrethound.main -t <path>")
+        console.print("   or after installation: secrethound -t <path>")
         
         return True
 
 def main():
-    """Основная функция для запуска обновления"""
+    """Main function for running update"""
     updater = SecretHoundUpdater()
     success = updater.run_full_update()
     return 0 if success else 1
