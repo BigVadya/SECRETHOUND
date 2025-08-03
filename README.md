@@ -2,8 +2,8 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.19-brightgreen)](https://github.com/BigVadya/SECRETHOUND/releases)
-[![GitHub Stars](https://img.shields.io/github/stars/BigVadya/SECRETHOUND?style=social)](https://github.com/BigVadya/SECRETHOUND/stargazers)
+[![Version](https://img.shields.io/badge/version-0.1.19-brightgreen)](https://github.com/bignstrong/SECRETHOUND/releases)
+[![GitHub Stars](https://img.shields.io/github/stars/bignstrong/SECRETHOUND?style=social)](https://github.com/bignstrong/SECRETHOUND/stargazers)
 
 ---
 
@@ -28,13 +28,13 @@
 
 ```bash
 pip install --user pipx  # if not installed
-pipx install 'git+https://github.com/BigVadya/SECRETHOUND.git'
+pipx install 'git+https://github.com/bignstrong/SECRETHOUND.git'
 ```
 
 ### Or: pip (user or venv)
 
 ```bash
-git clone https://github.com/BigVadya/SECRETHOUND.git
+git clone https://github.com/bignstrong/SECRETHOUND.git
 cd SECRETHOUND
 pip install -e . --break-system-packages  # for system-wide install
 # OR
@@ -71,17 +71,17 @@ pipx upgrade secrethound
 
 # Or reinstall from git
 pipx uninstall secrethound
-pipx install 'git+https://github.com/BigVadya/SECRETHOUND.git'
+pipx install 'git+https://github.com/bignstrong/SECRETHOUND.git'
 ```
 
 ### Using pip
 
 ```bash
 # If installed in user space
-pip install --user --upgrade git+https://github.com/BigVadya/SECRETHOUND.git
+pip install --user --upgrade git+https://github.com/bignstrong/SECRETHOUND.git
 
 # If installed in virtual environment
-pip install --upgrade git+https://github.com/BigVadya/SECRETHOUND.git
+pip install --upgrade git+https://github.com/bignstrong/SECRETHOUND.git
 
 # Or update from local repository
 cd /path/to/SECRETHOUND
